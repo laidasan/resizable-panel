@@ -1,0 +1,36 @@
+{
+  "name": "vue-resizable-panel",
+  "version": "0.1.0",
+  "description": "A resizable panel component library for Vue 2",
+  "main": "dist/vue-resizable-panel.cjs.js",
+  "module": "dist/vue-resizable-panel.es.js",
+  "exports": {
+    ".": {
+      "import": "./dist/vue-resizable-panel.es.js",
+      "require": "./dist/vue-resizable-panel.cjs.js"
+    },
+    "./src/*": "./src/*"
+  },
+  "files": [
+    "dist",
+    "src"
+  ],
+  "scripts": {
+    "build": "vite build",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "engines": {
+    "node": ">= 20.0.0"
+  },
+  "peerDependencies": {
+    "vue": "2.7"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-vue2": "^2.3.4",
+    "jsdom": "^29.1.1",
+    "vite": "^8.0.12",
+    "vitest": "^4.1.6"
+  },
+  "license": "MIT"
+}
