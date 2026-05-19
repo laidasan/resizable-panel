@@ -20,6 +20,7 @@
 - [x] v1 TDD 開發順序規劃 + Task 拆分
 - [x] **v1 TDD 開發 — Task 01 UnitConverter 完成**
 - [x] **v1 TDD 開發 — Task 02 LayoutCalculator 完成**
+- [x] **v1 TDD 開發 — Task 03 HitRegionDetector 完成**
 
 ---
 
@@ -139,7 +140,7 @@ SA 已通過完整性檢視（Spec 8 個章節逐條比對），詳見 `V1-SA.md
 |------|------|------|------|------|
 | 01 | `tasks/01-UnitConverter.md` | UnitConverter | 無 | done |
 | 02 | `tasks/02-LayoutCalculator.md` | LayoutCalculator | UnitConverter | done |
-| 03 | `tasks/03-HitRegionDetector.md` | HitRegionDetector | 無 | pending |
+| 03 | `tasks/03-HitRegionDetector.md` | HitRegionDetector | 無 | done |
 | 04 | `tasks/04-CursorManager.md` | CursorManager | 無 | pending |
 | 05 | `tasks/05-ResizableGroupManager.md` | ResizableGroupManager | 全部 | pending |
 | 06 | `tasks/06-Panel-Vue-SFC.md` | Panel (Vue SFC) | Manager | pending |
@@ -178,6 +179,14 @@ Task 02-04 之間無依賴，完成 01 後可平行開發。
 
 ---
 
+## HitRegionDetector 設計決策（2026-05-19）
+
+| 項目 | 決定 |
+|------|------|
+| detect 移除 groupRect 參數 | v1 簽章簡化為 `(pointerX, pointerY, panels)`。原版 react-resizable-panels 的命中判定完全依賴 panel element 的 `getBoundingClientRect()`，group 層級不參與座標計算。詳見 SA 設計決策記錄 |
+
+---
+
 ## 待討論議題
 
 ### Functional 重構 — 第三類迴圈（`_shrinkPanels` / `_growPanels`）
@@ -193,8 +202,8 @@ LayoutCalculator 的 `for` 迴圈已分三類處理：
 
 ## 下次 Session 接續點
 
-1. **開始 Task 03 — HitRegionDetector TDD 開發**（無依賴）
-2. Task 04（CursorManager）也無依賴，可平行開發
+1. **開始 Task 04 — CursorManager TDD 開發**（無依賴）
+2. Task 05（ResizableGroupManager）依賴全部模組，待 Task 04 完成後開始
 3. **討論第三類迴圈的 functional 重構方向**
 
 ---

@@ -57,7 +57,7 @@ classDiagram
 
     class HitRegionDetector {
         -_resizeTargetMinimumSize : ~coarse: number, fine: number~
-        +detect(pointerX: number, pointerY: number, panels: PanelData[], groupRect: DOMRect) HitResult
+        +detect(pointerX: number, pointerY: number, panels: PanelData[]) HitResult
         +getMargin() number
         +isCoarsePointer() boolean
     }
@@ -198,7 +198,7 @@ classDiagram
 
     class HitRegionDetector {
         -_resizeTargetMinimumSize : ~coarse: number, fine: number~
-        +detect(pointerX: number, pointerY: number, panels: PanelData[], groupRect: DOMRect) HitResult
+        +detect(pointerX: number, pointerY: number, panels: PanelData[]) HitResult
         +getMargin() number
         +isCoarsePointer() boolean
     }
@@ -575,6 +575,19 @@ parse 與 toPercent 的邊界處理策略，參考 react-resizable-panels 後調
 - px 輸入 + `availableSize > 0`：正常換算 `(value / availableSize) × 100`
 - 轉換結果超出 0-100 範圍 → 不 clamp，直接回傳。clamp 是 LayoutCalculator 的職責（SRP）
 
+### HitRegionDetector.detect 移除 groupRect 參數
+
+v1 的 `detect` 簽章從 `(pointerX, pointerY, panels, groupRect)` 簡化為 `(pointerX, pointerY, panels)`。
+
+**背景**：SA 原始設計中 `groupRect: DOMRect` 出現在簽章中但未定義具體用途。經調查 react-resizable-panels 原始碼，原版的命中判定完全依賴各 panel element 的 `getBoundingClientRect()` 計算邊界位置與 hit region rect，group 層級的 element 僅用於 stacking order 判斷（`isViableHitTarget`），不參與座標計算，也不以 `DOMRect` 形式傳入。
+
+**推測的潛在用途與原版處理方式**：
+- 快速排除（指標不在 Group 內）— 原版未做此優化
+- Y 軸範圍檢查 — 原版透過 hit region rect 自身的高度（來自 panel 的 `getBoundingClientRect()`）判斷，不靠 group rect
+- stacking order 判斷 — 原版使用 `groupElement`（DOM 元素），不使用 `groupRect`（DOMRect）
+
+**結論**：v1 不需要 `groupRect`。若未來需要 stacking order 或其他 group 層級判斷，再評估加回。
+
 ### 事件去重與浮點容差
 
 Layout 變化前後，Manager 透過 `LayoutCalculator.layoutsEqual(a, b)` 比較，相同則不觸發事件。比較使用浮點容差判定（非 `===`），避免計算過程中的微小誤差（如 49.99999 vs 50.00001）導致不必要的事件觸發。此去重邏輯適用於 pointermove 和 ResizeObserver 兩條路徑。
@@ -622,7 +635,7 @@ Manager 內部狀態變化（拖曳 / ResizeObserver）
 flowchart TD
     Entry(["pointerdown 觸發"])
     Entry --> GetPos["取得指標座標<br/>event.clientX / event.clientY"]
-    GetPos --> Detect["HitRegionDetector 命中偵測<br/>detect(pointerX, pointerY, panels, groupRect)"]
+    GetPos --> Detect["HitRegionDetector 命中偵測<br/>detect(pointerX, pointerY, panels)"]
     Detect --> HitCheck{命中邊界？}
     HitCheck -- 未命中 --> Ignore(["不處理"])
     HitCheck -- 命中 --> SaveState["記錄 DragState<br/>dragging = true<br/>initialLayout = 當前 layout 快照<br/>pointerDownAt = { x, y }<br/>activeBoundaryIndex = hitResult.boundaryIndex"]
