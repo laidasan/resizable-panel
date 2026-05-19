@@ -42,25 +42,6 @@ export class UnitConverter {
     }
 
     return result
-
-
-    // if (typeof size === 'number') {
-      // return { value: size, unit: 'percent' }
-    // }
-
-    // const numeric = parseFloat(size)
-    // const value = Number.isNaN(numeric) ? 0 : numeric
-
-    // if (size.endsWith('px')) {
-    //   return { value, unit: 'px' }
-    // }
-
-    // const unsupported = this._getUnsupportedUnit(size)
-    // if (unsupported) {
-    //   throw new Error(`Unsupported unit "${unsupported}" in "${size}". Supported units: ${SUPPORTED_UNITS.join(', ')}`)
-    // }
-
-    // return { value, unit: 'percent' }
   }
 
   toPercent(parsedSize, availableSize) {
@@ -74,17 +55,6 @@ export class UnitConverter {
     }
 
     return result
-
-
-    // if (parsedSize.unit === 'percent') {
-    //   return parsedSize.value
-    // }
-
-    // if (availableSize === 0) {
-    //   return 0
-    // }
-
-    // return (parsedSize.value / availableSize) * 100
   }
 
   /**
@@ -97,17 +67,10 @@ export class UnitConverter {
     const unitMatchs = defaultTo([])(size.match(this._unitRegexp))
     const unit = defaultTo(CssUnit.Percent)(head(unitMatchs))
 
-    // const unSupportUnitMatchs = defaultTo([])(size.match(this._unSupportedUnitRegexp))
 
     return {
       isValid: !includes(unit)(UnitConverter.UnSupportedUnitList),
       unit
     }
   }
-
-  // _getUnsupportedUnit(str) {
-  //   const match = str.match(/(rem|em|vh|vw|vmin|vmax|ch|ex|cm|mm|in|pt|pc)$/)
-
-  //   return match ? match[1] : null
-  // }
 }
