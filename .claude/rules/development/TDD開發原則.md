@@ -6,6 +6,11 @@
 2. **再寫實作** — 開發功能程式碼
 3. **驗證測試** — 確認單元測試通過
 
+## 測試命名
+
+- 使用 `[MethodName]_Should_[ExpectedBehavior]_When_[Condition]` 格式
+- 範例：`parse_Should_ReturnPercent_When_InputIsNumber`
+
 ## 測試未通過時的處理
 
 - **規格面議題**（測試的預期行為本身需要調整）：停下來與使用者討論，取得共識後才能修改測試或實作
