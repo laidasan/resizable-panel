@@ -68,11 +68,11 @@ export class LayoutCalculator {
   calculateInitialLayout(panels, availableSize) {
     const { withDefault, withoutDefault } = this._partitionByDefaultSize(panels, availableSize)
 
-    let layout = this._allocateDefaultSizes(withDefault, withoutDefault)
-    layout = this._normalizeLayout(layout)
-    layout = this._applyConstraints(layout, panels)
+    const rawLayout = this._allocateDefaultSizes(withDefault, withoutDefault)
+    const normalizedLayout = this._normalizeLayout(rawLayout)
+    const result = this._applyConstraints(normalizedLayout, panels)
 
-    return layout
+    return result
   }
 
   /**
@@ -117,30 +117,23 @@ export class LayoutCalculator {
     const leftBase = baseLayout[leftId]
     const rightBase = baseLayout[rightId]
 
-    let leftNew = leftBase + delta
-    let rightNew = rightBase - delta
+    const leftClamped = this._clampValue(leftBase + delta, leftPanel.constraints.minSize, leftPanel.constraints.maxSize)
+    const rightClamped = this._clampValue(rightBase - delta, rightPanel.constraints.minSize, rightPanel.constraints.maxSize)
 
-    leftNew = this._clampValue(leftNew, leftPanel.constraints.minSize, leftPanel.constraints.maxSize)
-    rightNew = this._clampValue(rightNew, rightPanel.constraints.minSize, rightPanel.constraints.maxSize)
+    const leftDelta = leftClamped - leftBase
+    const rightDelta = rightClamped - rightBase
 
-    const leftDelta = leftNew - leftBase
-    const rightDelta = rightNew - rightBase
-
-    if (leftDelta === 0 && rightDelta === 0) {
-      return baseLayout
-    }
-
+    const canApply = leftDelta !== 0 || rightDelta !== 0
     const actualDelta = Math.abs(leftDelta) <= Math.abs(rightDelta)
       ? leftDelta
       : -rightDelta
 
-    const result = { ...baseLayout }
-    result[leftId] = leftBase + actualDelta
-    result[rightId] = rightBase - actualDelta
+    const candidate = { ...baseLayout }
+    candidate[leftId] = leftBase + actualDelta
+    candidate[rightId] = rightBase - actualDelta
 
-    if (this.layoutsEqual(result, baseLayout)) {
-      return baseLayout
-    }
+    const hasChanged = canApply && !this.layoutsEqual(candidate, baseLayout)
+    const result = hasChanged ? candidate : baseLayout
 
     return result
   }
@@ -207,23 +200,49 @@ export class LayoutCalculator {
     const keysA = keys(a)
     const keysB = keys(b)
 
-    if (keysA.length !== keysB.length) {
-      return false
+    let result = keysA.length === keysB.length
+
+    for (let i = 0; i < keysA.length && result; i++) {
+      const id = keysA[i]
+      result = !isNil(b[id]) && this._formatNumber(a[id]) === this._formatNumber(b[id])
     }
 
-    for (const id of keysA) {
-      if (isNil(b[id]) || this._formatNumber(a[id]) !== this._formatNumber(b[id])) {
-        return false
-      }
-    }
-
-    return true
+    return result
   }
 
+  /**
+   * @private
+   * 將數值四捨五入到 PRECISION 位小數，用於浮點容差比較。
+   *
+   * @param {number} number - 待格式化的數值
+   * @returns {number} 四捨五入後的數值
+   *
+   * @example
+   * this._formatNumber(49.9999) // => 50
+   * this._formatNumber(50.0004) // => 50
+   * this._formatNumber(50.001)  // => 50.001
+   */
   _formatNumber(number) {
     return parseFloat(number.toFixed(LayoutCalculator.PRECISION))
   }
 
+  /**
+   * @private
+   * 將 panels 依據是否有 defaultSize 分為兩組。
+   * 有 defaultSize 的 panel 會透過 UnitConverter 將原始值轉為百分比。
+   *
+   * @param {PanelData[]} panels - panel 資料陣列
+   * @param {number} availableSize - 容器可用尺寸（px），用於 px → % 轉換
+   * @returns {{ withDefault: Array<{ panel: PanelData, percent: number }>, withoutDefault: PanelData[] }}
+   *
+   * @example
+   * // panelA.config.defaultSize = '200px', panelB.config.defaultSize = undefined
+   * this._partitionByDefaultSize([panelA, panelB], 1000)
+   * // => {
+   * //   withDefault: [{ panel: panelA, percent: 20 }],
+   * //   withoutDefault: [panelB]
+   * // }
+   */
   _partitionByDefaultSize(panels, availableSize) {
     const withDefault = []
     const withoutDefault = []
@@ -243,6 +262,27 @@ export class LayoutCalculator {
     return { withDefault, withoutDefault }
   }
 
+  /**
+   * @private
+   * 分配初始尺寸。有 defaultSize 的 panel 按指定百分比分配，
+   * 無 defaultSize 的 panel 均分剩餘空間。
+   *
+   * 回傳的 layout 加總不保證為 100%（後續由 _normalizeLayout 處理）。
+   *
+   * @param {Array<{ panel: PanelData, percent: number }>} withDefault - 有 defaultSize 的 panel（已轉為百分比）
+   * @param {PanelData[]} withoutDefault - 無 defaultSize 的 panel
+   * @returns {Layout} 未 normalize 的初始 layout
+   *
+   * @example
+   * // withDefault: [{ panel: panelA, percent: 70 }], withoutDefault: [panelB]
+   * this._allocateDefaultSizes(withDefault, withoutDefault)
+   * // => { a: 70, b: 30 }
+   *
+   * @example
+   * // 全部無 defaultSize
+   * this._allocateDefaultSizes([], [panelA, panelB])
+   * // => { a: 50, b: 50 }
+   */
   _allocateDefaultSizes(withDefault, withoutDefault) {
     const result = {}
     let usedPercent = 0
@@ -265,23 +305,58 @@ export class LayoutCalculator {
     return result
   }
 
+  /**
+   * @private
+   * 將 layout 按比例縮放，使加總等於 100%。
+   * 若加總已為 100%（含浮點容差）或為 0，則原樣回傳。
+   *
+   * @param {Layout} layout - 待 normalize 的 layout
+   * @returns {Layout} 加總為 100% 的 layout
+   *
+   * @example
+   * this._normalizeLayout({ a: 30, b: 40 })
+   * // => { a: 42.857, b: 57.143 }  （按 30:40 比例 normalize）
+   *
+   * @example
+   * // 已為 100% → 原樣回傳
+   * this._normalizeLayout({ a: 60, b: 40 })
+   * // => { a: 60, b: 40 }
+   */
   _normalizeLayout(layout) {
     const total = values(layout).reduce((sum, v) => sum + v, 0)
+    const needsNormalize = total !== 0 && this._formatNumber(total) !== 100
 
-    if (total === 0 || this._formatNumber(total) === 100) {
-      return layout
-    }
+    let result = layout
 
-    const ratio = 100 / total
-    const result = {}
+    if (needsNormalize) {
+      const ratio = 100 / total
+      result = {}
 
-    for (const id of keys(layout)) {
-      result[id] = layout[id] * ratio
+      for (const id of keys(layout)) {
+        result[id] = layout[id] * ratio
+      }
     }
 
     return result
   }
 
+  /**
+   * @private
+   * 套用 min/max 約束並確保加總為 100%。
+   *
+   * 流程：
+   * 1. 每個 panel 先 clamp 到自身 min/max 範圍
+   * 2. 若 clamp 後加總 ≠ 100%，透過 _redistributeOverflow 重分配溢出量
+   *
+   * @param {Layout} layout - 待套用約束的 layout
+   * @param {PanelData[]} panels - panel 資料陣列，順序依 DOM 位置
+   * @returns {Layout} 符合約束且加總為 100% 的 layout
+   *
+   * @example
+   * // panel a minSize=40，layout 中 a=30 違規
+   * this._applyConstraints({ a: 30, b: 70 }, panels)
+   * // => { a: 40, b: 60 }
+   */
   _applyConstraints(layout, panels) {
     const result = {}
 
@@ -293,47 +368,123 @@ export class LayoutCalculator {
       )
     }
 
-    let total = values(result).reduce((sum, v) => sum + v, 0)
-    let overflow = total - 100
+    const overflow = values(result).reduce((sum, v) => sum + v, 0) - 100
 
-    if (this._formatNumber(overflow) === 0) {
-      return result
+    const finalResult = this._formatNumber(overflow) !== 0
+      ? this._redistributeOverflow(result, panels, overflow)
+      : result
+
+    return finalResult
+  }
+
+  /**
+   * @private
+   * 將 clamp 後的溢出量重分配給可調整的 panel。
+   * overflow > 0 時縮減 panel，overflow < 0 時擴增 panel。
+   *
+   * @param {Layout} layout - clamp 後的 layout（加總 ≠ 100%）
+   * @param {PanelData[]} panels - panel 資料陣列，順序依 DOM 位置
+   * @param {number} overflow - 溢出量（正值 = 需縮減，負值 = 需擴增）
+   * @returns {Layout} 重分配後的新 layout（加總 = 100%）
+   */
+  _redistributeOverflow(layout, panels, overflow) {
+    const result = overflow > 0
+      ? this._shrinkPanels(layout, panels, overflow)
+      : this._growPanels(layout, panels, -overflow)
+
+    return result
+  }
+
+  /**
+   * @private
+   * 從後往前縮減 panel 尺寸以消化溢出量。
+   *
+   * 兩輪處理：
+   * 1. 第一輪：只扣除各 panel 在 minSize 以上的可縮減量（respect 約束）
+   * 2. 第二輪：若仍有溢出，強制扣除（突破 minSize，DOM 順序前面的優先保留）
+   *
+   * @param {Layout} layout - 需要縮減的 layout
+   * @param {PanelData[]} panels - panel 資料陣列，順序依 DOM 位置
+   * @param {number} overflow - 需縮減的總量（正值）
+   * @returns {Layout} 縮減後的新 layout
+   *
+   * @example
+   * // panel a=60(min=40), panel b=60(min=60), overflow=20
+   * this._shrinkPanels({ a: 60, b: 60 }, panels, 20)
+   * // => { a: 40, b: 60 }  （a 有 20 的可縮減量，優先從後往前但 b 不可縮所以扣 a）
+   */
+  _shrinkPanels(layout, panels, overflow) {
+    const result = { ...layout }
+    let remaining = overflow
+
+    for (let i = panels.length - 1; i >= 0 && this._formatNumber(remaining) !== 0; i--) {
+      const panel = panels[i]
+      const currentSize = result[panel.id]
+      const canShrink = currentSize - panel.constraints.minSize
+      const shrink = Math.min(remaining, canShrink)
+
+      result[panel.id] = currentSize - shrink
+      remaining -= shrink
     }
 
-    if (overflow > 0) {
-      for (let i = panels.length - 1; i >= 0 && this._formatNumber(overflow) !== 0; i--) {
-        const panel = panels[i]
-        const currentSize = result[panel.id]
-        const canShrink = currentSize - panel.constraints.minSize
-        const shrink = Math.min(overflow, canShrink)
+    for (let i = panels.length - 1; i >= 0 && this._formatNumber(remaining) !== 0; i--) {
+      const panel = panels[i]
+      const currentSize = result[panel.id]
+      const shrink = Math.min(remaining, currentSize)
 
-        result[panel.id] = currentSize - shrink
-        overflow -= shrink
-      }
-
-      for (let i = panels.length - 1; i >= 0 && this._formatNumber(overflow) !== 0; i--) {
-        const panel = panels[i]
-        const currentSize = result[panel.id]
-        const shrink = Math.min(overflow, currentSize)
-
-        result[panel.id] = currentSize - shrink
-        overflow -= shrink
-      }
-    } else {
-      for (let i = panels.length - 1; i >= 0 && this._formatNumber(overflow) !== 0; i--) {
-        const panel = panels[i]
-        const currentSize = result[panel.id]
-        const canGrow = panel.constraints.maxSize - currentSize
-        const grow = Math.min(-overflow, canGrow)
-
-        result[panel.id] = currentSize + grow
-        overflow += grow
-      }
+      result[panel.id] = currentSize - shrink
+      remaining -= shrink
     }
 
     return result
   }
 
+  /**
+   * @private
+   * 從後往前擴增 panel 尺寸以填補不足量。
+   * 每個 panel 最多擴增到自身 maxSize。
+   *
+   * @param {Layout} layout - 需要擴增的 layout
+   * @param {PanelData[]} panels - panel 資料陣列，順序依 DOM 位置
+   * @param {number} deficit - 需擴增的總量（正值）
+   * @returns {Layout} 擴增後的新 layout
+   *
+   * @example
+   * // panel a=30(max=100), panel b=30(max=50), deficit=40
+   * this._growPanels({ a: 30, b: 30 }, panels, 40)
+   * // => { a: 50, b: 50 }  （b 先吸收 20 到 max，a 再吸收 20）
+   */
+  _growPanels(layout, panels, deficit) {
+    const result = { ...layout }
+    let remaining = deficit
+
+    for (let i = panels.length - 1; i >= 0 && this._formatNumber(remaining) !== 0; i--) {
+      const panel = panels[i]
+      const currentSize = result[panel.id]
+      const canGrow = panel.constraints.maxSize - currentSize
+      const grow = Math.min(remaining, canGrow)
+
+      result[panel.id] = currentSize + grow
+      remaining -= grow
+    }
+
+    return result
+  }
+
+  /**
+   * @private
+   * 將數值限制在 [min, max] 範圍內。
+   *
+   * @param {number} value - 待限制的數值
+   * @param {number} min - 下限
+   * @param {number} max - 上限
+   * @returns {number} 限制後的數值
+   *
+   * @example
+   * this._clampValue(120, 0, 100) // => 100
+   * this._clampValue(-5, 0, 100)  // => 0
+   * this._clampValue(50, 0, 100)  // => 50
+   */
   _clampValue(value, min, max) {
     return Math.min(Math.max(value, min), max)
   }
