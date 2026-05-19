@@ -16,8 +16,9 @@
 - [x] 技術選型
 - [x] 專案初始化
 - [x] v1 功能規格（Spec）
-- [ ] **v1 SA（系統分析/架構設計）— 進行中**
-- [ ] v1 TDD 開發
+- [x] v1 SA（系統分析/架構設計）
+- [x] v1 TDD 開發順序規劃 + Task 拆分
+- [ ] **v1 TDD 開發 — Task 01 UnitConverter 開始**
 
 ---
 
@@ -51,41 +52,58 @@
 - TDD：先寫測試再開發（規則檔：`.claude/rules/development/TDD開發原則.md`）
 - SOLID + OOP + Facade 模式（規則檔：`.claude/rules/development/程式開發原則.md`）
 
+### 測試組織
+
+- 測試與原始碼分離，目錄結構鏡像對映
+- 範例：`src/core/UnitConverter.js` → `tests/core/UnitConverter.test.js`
+
 ---
 
-## SA 階段進行中的狀態
+## SA 完成摘要
 
-### 已完成
+SA 已通過完整性檢視（Spec 8 個章節逐條比對），詳見 `V1-SA.md`。
 
-- Class Diagram 初版（見 `V1-SA.md`）
-- 五個核心模組識別與職責劃分：
-  - **ResizableGroupManager** — orchestrator，聚合 Panel，協調各模組
-  - **LayoutCalculator** — layout 數學（初始分配、delta 調整、雙向 clamp、100% 不變式）
-  - **UnitConverter** — 單位解析（%、px）與轉換
-  - **HitRegionDetector** — 命中區域判定、粗/細指標偵測
-  - **CursorManager** — cursor 狀態管理（hover / drag / directional / disabled）
-- Panel（Vue SFC）不持有 Manager 參照，只需 panelId 和 size（via callback）
-- **資料結構定義完成**（見 `V1-SA.md` 資料結構章節）：
-  - 輸入面：GroupConfig（含 element）、PanelConfig（含 element）
-  - 內部面：ParsedSize、PanelConstraints、PanelData、Layout、HitResult、ConstraintDirection、CursorState、LayoutResult
-- **Public API 定義完成**（見 `V1-SA.md` Public API 章節）
-- **使用範例完成**（見 `V1-SA.md` 使用範例章節）— 涵蓋三個場景
+### 五個核心模組
+
+| 模組 | 職責 |
+|------|------|
+| ResizableGroupManager | orchestrator，協調各模組，對外提供 API |
+| LayoutCalculator | layout 數學（初始分配、delta 調整、雙向 clamp、100% 不變式、layoutsEqual 含浮點容差） |
+| UnitConverter | 單位解析（%、px）與轉換 |
+| HitRegionDetector | 命中區域判定（座標比對，即時計算）、粗/細指標偵測 |
+| CursorManager | 拖曳期間全域樣式管理（cursor + user-select），作用於 document.body |
+
+### SA 涵蓋範圍
+
+- Class Diagram（含 DragState）
+- 資料結構（輸入面 + 內部面，共 11 種）
+- Public API + 使用範例（3 個場景）
+- 互動流程（事件綁定策略、拖曳三階段含 iframe 偵測、ResizeObserver）
+- 設計決策（17 項）
 
 ### 設計決策
 
-- **Panel 不持有約束配置** — defaultSize / minSize / maxSize 在 Manager 層面透過 registerPanel 的 PanelConfig 配置，Panel 是純渲染層，只接收算好的百分比
-- **Panel 順序基於 DOM 位置** — Manager 透過 element.offsetLeft/offsetTop 排序，使用者在 registerPanel 時傳入 DOM element
-- **原始值與衍生值分離** — PanelData 保留原始 config + 衍生百分比約束，容器 resize 時從原始值重算
-- **Layout 用 plain object** — `{ [panelId]: number }`，序列化方便
-- **HitResult 用 boundaryIndex** — 命中的是「邊界」而非 panel，v2 擴展時語意清晰
-- **registerPanel 回傳 panelId** — Manager 提供 `unRegisterPanel(panelId)` public API，不使用回傳 unregister function 的模式
-- **registerPanel 職責單一** — 只做註冊，不觸發 layout 重算（SRP），重算由 activate() 負責
-- **內部 Layout 與 Callback LayoutResult 分離** — 內部計算用 `Layout`（`{[panelId]: number}`），callback 傳出用 `LayoutResult`（`{[panelId]: { size, element }}`）
-- **activate / deactivate 生命週期** — 可重複循環（SidePanel 展開/收合），deactivate 時已註冊 panels 保留，activate 時重算約束
-- **事件機制 on / off** — on 回傳 void，off 需傳入原始 callback 參照，事件註冊在 activate/deactivate 循環中保留
-- **Group 容器元素顯式傳入** — GroupConfig 必填 element，作為 ResizeObserver 監聽目標，availableSize 從 Panel 元素加總計算
-- **Constructor 支援可選 panelConfigs** — 適用 DOM 已存在的場景（純 JS/HTML、SSR 後），Vue CSR 等場景透過後續 registerPanel 註冊
-- **Panel 更新機制延後** — 整體架構完成後再決定 Panel CSS 更新方式，目前只確認 callback payload 結構
+- **Panel 不持有約束配置** — Panel 是純渲染層，只接收算好的百分比
+- **Panel 順序基於 DOM 位置** — offsetLeft/offsetTop 排序
+- **原始值與衍生值分離** — 容器 resize 時從原始值重算
+- **Layout 用 plain object** — `{ [panelId]: number }`
+- **HitResult 用 boundaryIndex** — 命中「邊界」而非 panel
+- **registerPanel 回傳 panelId** + unRegisterPanel API
+- **registerPanel 職責單一** — 只做註冊，不觸發重算（SRP）
+- **內部 Layout 與 Callback LayoutResult 分離**
+- **activate / deactivate 生命週期** — 可重複循環，panels 保留
+- **事件機制 on / off** — 在 activate/deactivate 循環中保留
+- **Group 容器元素顯式傳入** — 作為 ResizeObserver 監聽目標
+- **Constructor 支援可選 panelConfigs**
+- **Panel 更新機制延後** — 目前只確認 callback payload 結構
+- **ResizeObserver 只觀察 Group 容器** — 決策記錄見 `ADR-ResizeObserver-觀察範圍.md`
+- **Hit Region 即時計算** — v1 不做預算 cache，座標比對
+- **拖曳 delta 基於 baseLayout** — 非累計式，避免浮點誤差漂移
+- **setPointerCapture 延遲到 pointermove** — 避免影響 click 事件
+- **拖曳期間禁止文字選取** — CursorManager 在 document.body 加 user-select: none
+- **iframe 指標釋放偵測** — pointermove 中檢查 event.buttons === 0
+- **約束衝突按 DOM 順序處理** — 靠前 panel 優先，級聯剩餘，無法滿足 100% 則回退
+- **事件去重含浮點容差** — LayoutCalculator.layoutsEqual() 比較，相同則不觸發
 
 ---
 
@@ -96,7 +114,8 @@
 | `PROJECT-CONTEXT.md` | 專案目標、決策記錄、版本規劃、進度 |
 | `FEATURE-ANALYSIS-react-resizable-panels.md` | react-resizable-panels 72 項功能分析 |
 | `V1-SPEC.md` | v1 功能規格（需求面，8 個章節） |
-| `V1-SA.md` | v1 系統分析 / 架構設計（進行中） |
+| `V1-SA.md` | v1 系統分析 / 架構設計（完成） |
+| `ADR-ResizeObserver-觀察範圍.md` | 架構決策：ResizeObserver 只觀察 Group 容器 |
 | `.claude/rules/development/TDD開發原則.md` | TDD 開發流程規範 |
 | `.claude/rules/development/程式開發原則.md` | SOLID、OOP、Facade 原則 |
 
@@ -111,11 +130,26 @@
 
 ---
 
+## TDD 開發計畫
+
+開發順序（bottom-up，無依賴 → 有依賴）：
+
+| 順序 | Task | 模組 | 依賴 | 狀態 |
+|------|------|------|------|------|
+| 01 | `tasks/01-UnitConverter.md` | UnitConverter | 無 | pending |
+| 02 | `tasks/02-LayoutCalculator.md` | LayoutCalculator | UnitConverter | pending |
+| 03 | `tasks/03-HitRegionDetector.md` | HitRegionDetector | 無 | pending |
+| 04 | `tasks/04-CursorManager.md` | CursorManager | 無 | pending |
+| 05 | `tasks/05-ResizableGroupManager.md` | ResizableGroupManager | 全部 | pending |
+| 06 | `tasks/06-Panel-Vue-SFC.md` | Panel (Vue SFC) | Manager | pending |
+
+Task 02-04 之間無依賴，完成 01 後可平行開發。
+
+---
+
 ## 下次 Session 接續點
 
-1. **描述互動流程** — 拖曳三階段（pointerdown/move/up）、ResizeObserver 流程、事件綁定策略
-2. **確認 SA 是否完整** — 資料結構、Public API、使用範例、設計決策都已定義，檢視是否有遺漏
-3. **SA 完成後進入 v1 TDD 開發**
+1. **開始 Task 01 — UnitConverter TDD 開發** — 先寫測試，再寫實作
 
 ---
 
