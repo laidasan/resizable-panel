@@ -9,6 +9,8 @@ import { CursorManager } from './CursorManager.js'
 const DefaultMinSize = '0%'
 const DefaultMaxSize = '100%'
 const PointerButtonNone = 0
+const PrimaryPointerButton = 0
+const PointerTypeMouse = 'mouse'
 
 /**
  * @class ResizableGroupManager
@@ -52,6 +54,8 @@ export class ResizableGroupManager {
   _boundHandlePointerDown = null
   _boundHandlePointerMove = null
   _boundHandlePointerUp = null
+  _boundHandlePointerLeave = null
+  _boundHandlePointerOut = null
 
   constructor({ groupConfig, panelConfigs }) {
     this._config = groupConfig
@@ -64,6 +68,8 @@ export class ResizableGroupManager {
     this._boundHandlePointerDown = this._handlePointerDown.bind(this)
     this._boundHandlePointerMove = this._handlePointerMove.bind(this)
     this._boundHandlePointerUp = this._handlePointerUp.bind(this)
+    this._boundHandlePointerLeave = this._handlePointerLeave.bind(this)
+    this._boundHandlePointerOut = this._handlePointerOut.bind(this)
 
     if (panelConfigs) {
       panelConfigs.forEach(config => this.registerPanel(config))
@@ -251,6 +257,8 @@ export class ResizableGroupManager {
     doc.addEventListener('pointerdown', this._boundHandlePointerDown)
     doc.addEventListener('pointermove', this._boundHandlePointerMove)
     doc.addEventListener('pointerup', this._boundHandlePointerUp)
+    doc.addEventListener('pointerleave', this._boundHandlePointerLeave)
+    doc.addEventListener('pointerout', this._boundHandlePointerOut)
   }
 
   /**
@@ -315,6 +323,8 @@ export class ResizableGroupManager {
     doc.removeEventListener('pointerdown', this._boundHandlePointerDown)
     doc.removeEventListener('pointermove', this._boundHandlePointerMove)
     doc.removeEventListener('pointerup', this._boundHandlePointerUp)
+    doc.removeEventListener('pointerleave', this._boundHandlePointerLeave)
+    doc.removeEventListener('pointerout', this._boundHandlePointerOut)
   }
 
   /**
@@ -356,23 +366,37 @@ export class ResizableGroupManager {
    * document.addEventListener('pointerdown', this._boundHandlePointerDown)
    */
   _handlePointerDown(event) {
-    const dragTarget = this._resolveDragTarget(event)
+    if (!event.defaultPrevented && !this._isNonPrimaryMouseButton(event)) {
+      const dragTarget = this._resolveDragTarget(event)
 
-    if (dragTarget) {
-      this._dragState = {
-        dragging: true,
-        initialLayout: { ...this._layout },
-        pointerDownAt: { x: event.clientX, y: event.clientY },
-        activeBoundaryIndex: dragTarget.hitResult.boundaryIndex
+      if (dragTarget) {
+        this._dragState = {
+          dragging: true,
+          initialLayout: { ...this._layout },
+          pointerDownAt: { x: event.clientX, y: event.clientY },
+          activeBoundaryIndex: dragTarget.hitResult.boundaryIndex
+        }
+
+        if (!this._config.disableCursor) {
+          this._cursorManager.setDrag(ConstraintDirection.None)
+        }
+
+        this._emit(Event.LayoutChange, this._toLayoutResult())
+        event.preventDefault()
       }
-
-      if (!this._config.disableCursor) {
-        this._cursorManager.setDrag(ConstraintDirection.None)
-      }
-
-      this._emit(Event.LayoutChange, this._toLayoutResult())
-      event.preventDefault()
     }
+  }
+
+  /**
+   * @private
+   * @param {PointerEvent} event
+   * @returns {boolean} 是否為非主要滑鼠按鍵（右鍵、中鍵等）
+   * @description 判斷是否為非主要滑鼠按鍵，僅對 mouse 類型的 pointer 檢查
+   * @example
+   * this._isNonPrimaryMouseButton(pointerEvent) // true（右鍵）
+   */
+  _isNonPrimaryMouseButton(event) {
+    return event.pointerType === PointerTypeMouse && event.button !== PrimaryPointerButton
   }
 
   /**
@@ -428,8 +452,8 @@ export class ResizableGroupManager {
    * document.addEventListener('pointermove', this._boundHandlePointerMove)
    */
   _handlePointerMove(event) {
-    if (!this._active) {
-      // inactive — no-op
+    if (!this._active || event.defaultPrevented) {
+      // inactive or already consumed — no-op
     } else if (!this._dragState.dragging) {
       this._handleHoverDetection(event)
     } else if (event.buttons === PointerButtonNone) {
@@ -579,9 +603,44 @@ export class ResizableGroupManager {
    * document.addEventListener('pointerup', this._boundHandlePointerUp)
    */
   _handlePointerUp(event) {
-    if (this._dragState.dragging) {
+    const shouldProcess = this._dragState.dragging
+      && !event.defaultPrevented
+      && !this._isNonPrimaryMouseButton(event)
+
+    if (shouldProcess) {
       this._endDrag()
       event.preventDefault()
+    }
+  }
+
+  /**
+   * @private
+   * @param {PointerEvent} event
+   * @returns {void}
+   * @description pointerleave handler — 指標離開 document 邊界時，拖曳中仍以邊界座標更新 layout
+   * @example
+   * document.addEventListener('pointerleave', this._boundHandlePointerLeave)
+   */
+  _handlePointerLeave(event) {
+    if (this._dragState.dragging) {
+      this._processDragMove(event)
+    }
+  }
+
+  /**
+   * @private
+   * @param {PointerEvent} event
+   * @returns {void}
+   * @description pointerout handler — 指標移到 iframe 時 reset hover cursor，避免 cursor 殘留
+   * @example
+   * document.addEventListener('pointerout', this._boundHandlePointerOut)
+   */
+  _handlePointerOut(event) {
+    const isHoverState = this._active && !this._dragState.dragging
+    const isMovingToIframe = event.relatedTarget instanceof HTMLIFrameElement
+
+    if (isHoverState && isMovingToIframe && !this._config.disableCursor) {
+      this._cursorManager.reset()
     }
   }
 

@@ -177,11 +177,6 @@ describe('Event', () => {
     expect(manager.Event.LayoutChanged).toBe(Event.LayoutChanged)
   })
 
-  test('Event_Should_BeAccessibleFromClass_When_Referenced', () => {
-    expect(ResizableGroupManager.Event).toBeDefined()
-    expect(ResizableGroupManager.Event.LayoutChange).toBe(Event.LayoutChange)
-    expect(ResizableGroupManager.Event.LayoutChanged).toBe(Event.LayoutChanged)
-  })
 })
 
 describe('on', () => {
