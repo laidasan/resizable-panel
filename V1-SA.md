@@ -558,6 +558,21 @@ PanelData 同時保留原始 config（PanelConfig，含使用者傳入的 `"200p
 
 此策略同時適用於：初始 layout 計算（`calculateInitialLayout`）、拖曳 delta 調整（`adjustLayoutByDelta`）、ResizeObserver 觸發的約束重算（`validateLayout`）。
 
+### UnitConverter 邊界行為
+
+parse 與 toPercent 的邊界處理策略，參考 react-resizable-panels 後調整：
+
+**parse 層**：
+- 使用 `parseFloat()` 解析，結果為 `NaN` 時轉為 `0`
+- 純數字（`50`）→ 百分比（與 react-resizable-panels 不同，原版純數字 = px）
+- 字串無單位（`"50"`）→ 百分比
+- 負數照常解析，parse 層不攔截，交由下游 LayoutCalculator clamp
+- 不支援的單位（`"200em"`、`"50vw"` 等）→ throw Error（v1 只支援 `%` 和 `px`）
+
+**toPercent 層**：
+- `availableSize = 0` 時不做轉換，回退預設約束（`{ minSize: 0, maxSize: 100 }`），等容器重新可見時重算
+- 轉換結果超出 0-100 範圍 → 不 clamp，直接回傳。clamp 是 LayoutCalculator 的職責（SRP）
+
 ### 事件去重與浮點容差
 
 Layout 變化前後，Manager 透過 `LayoutCalculator.layoutsEqual(a, b)` 比較，相同則不觸發事件。比較使用浮點容差判定（非 `===`），避免計算過程中的微小誤差（如 49.99999 vs 50.00001）導致不必要的事件觸發。此去重邏輯適用於 pointermove 和 ResizeObserver 兩條路徑。

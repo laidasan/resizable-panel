@@ -18,7 +18,7 @@
 - [x] v1 功能規格（Spec）
 - [x] v1 SA（系統分析/架構設計）
 - [x] v1 TDD 開發順序規劃 + Task 拆分
-- [ ] **v1 TDD 開發 — Task 01 UnitConverter 開始**
+- [x] **v1 TDD 開發 — Task 01 UnitConverter 完成**
 
 ---
 
@@ -136,7 +136,7 @@ SA 已通過完整性檢視（Spec 8 個章節逐條比對），詳見 `V1-SA.md
 
 | 順序 | Task | 模組 | 依賴 | 狀態 |
 |------|------|------|------|------|
-| 01 | `tasks/01-UnitConverter.md` | UnitConverter | 無 | pending |
+| 01 | `tasks/01-UnitConverter.md` | UnitConverter | 無 | done |
 | 02 | `tasks/02-LayoutCalculator.md` | LayoutCalculator | UnitConverter | pending |
 | 03 | `tasks/03-HitRegionDetector.md` | HitRegionDetector | 無 | pending |
 | 04 | `tasks/04-CursorManager.md` | CursorManager | 無 | pending |
@@ -147,9 +147,27 @@ Task 02-04 之間無依賴，完成 01 後可平行開發。
 
 ---
 
+## UnitConverter 邊界行為決策（2026-05-19）
+
+參考 react-resizable-panels 原始碼後，確認以下處理策略：
+
+| 項目 | 決定 |
+|------|------|
+| parseFloat 得到 NaN | 轉為 0 |
+| 純數字 / 字串無單位 | 視為 %（與原版不同，原版純數字 = px） |
+| 負數 | parse 層不攔截，交由下游 clamp |
+| 不支援的單位 | throw Error |
+| availableSize = 0 | 回退預設，容器可見時重算 |
+| 轉換結果超 0-100 | 不 clamp，直接回傳（SRP，clamp 是 LayoutCalculator 職責） |
+
+決策已記錄至 `V1-SA.md`（UnitConverter 邊界行為章節），Task 已更新至 `tasks/01-UnitConverter.md`。
+
+---
+
 ## 下次 Session 接續點
 
-1. **開始 Task 01 — UnitConverter TDD 開發** — 先寫測試，再寫實作
+1. **開始 Task 02 — LayoutCalculator TDD 開發**（依賴 UnitConverter，已完成）
+2. Task 03（HitRegionDetector）與 Task 04（CursorManager）無依賴，可平行開發
 
 ---
 

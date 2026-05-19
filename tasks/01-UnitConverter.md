@@ -1,6 +1,6 @@
 # Task 01: UnitConverter
 
-> 狀態：pending
+> 狀態：done
 > 依賴：無
 > 對應 SA 章節：Class Diagram — UnitConverter、資料結構 — ParsedSize
 
@@ -36,21 +36,23 @@
 
 ## TODO
 
-- [ ] **parse — 百分比解析**
+- [x] **parse — 百分比解析**
   - 純數字 `50` → `{ value: 50, unit: 'percent' }`
   - 字串數字 `"50"` → `{ value: 50, unit: 'percent' }`
   - 帶 % 字串 `"50%"` → `{ value: 50, unit: 'percent' }`
-- [ ] **parse — px 解析**
+- [x] **parse — px 解析**
   - `"200px"` → `{ value: 200, unit: 'px' }`
-- [ ] **parse — 邊界/異常輸入**
+- [x] **parse — 邊界/異常輸入**
   - `0`、`"0"`、`"0%"`、`"0px"` 正確處理
   - 小數值 `"33.33%"`、`"150.5px"` 正確處理
-  - 無效輸入（負數、非數字字串、不支援的單位）拋出錯誤或有明確行為
-- [ ] **toPercent — 百分比輸入**
+  - 負數（`-10`、`"-5%"`、`"-100px"`）照常解析，不攔截
+  - 非數字字串（`"abc"`、`""`）→ `parseFloat()` 得到 `NaN`，轉為 `0`，單位依規則判定
+  - 不支援的單位（`"200em"`、`"50vw"`）→ throw Error
+- [x] **toPercent — 百分比輸入**
   - `{ value: 50, unit: 'percent' }` → 直接回傳 50
-- [ ] **toPercent — px 輸入**
+- [x] **toPercent — px 輸入**
   - `{ value: 200, unit: 'px' }`, availableSize=1000 → 20
   - `{ value: 200, unit: 'px' }`, availableSize=500 → 40
-- [ ] **toPercent — 邊界情況**
-  - availableSize=0 時的處理策略
-  - 轉換結果超出 0-100 範圍時的處理策略
+- [x] **toPercent — 邊界情況**
+  - availableSize=0 → 回傳 0（回退預設，等容器可見時重算）
+  - 轉換結果超出 0-100 → 不 clamp，直接回傳原始計算值
