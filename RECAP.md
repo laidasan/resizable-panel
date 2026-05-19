@@ -1,6 +1,6 @@
 # Session Recap
 
-> 更新日期：2026-05-19
+> 更新日期：2026-05-20（Session 3）
 
 ---
 
@@ -22,6 +22,10 @@
 - [x] **v1 TDD 開發 — Task 02 LayoutCalculator 完成**
 - [x] **v1 TDD 開發 — Task 03 HitRegionDetector 完成**
 - [x] **v1 TDD 開發 — Task 04 CursorManager 完成**
+- [x] **v1 TDD 開發 — Task 05 ResizableGroupManager Phase 1（靜態邏輯）完成**
+- [x] **v1 TDD 開發 — Task 05 ResizableGroupManager Phase 2-4（activate/deactivate、拖曳三階段、ResizeObserver）完成**
+- [x] **Playground 手動測試環境建立**（`playground/` 目錄，Vite dev server）
+- [x] **ResizableGroupManager code check 修正**（5 項違規全部修正完成）
 
 ---
 
@@ -143,7 +147,7 @@ SA 已通過完整性檢視（Spec 8 個章節逐條比對），詳見 `V1-SA.md
 | 02 | `tasks/02-LayoutCalculator.md` | LayoutCalculator | UnitConverter | done |
 | 03 | `tasks/03-HitRegionDetector.md` | HitRegionDetector | 無 | done |
 | 04 | `tasks/04-CursorManager.md` | CursorManager | 無 | done |
-| 05 | `tasks/05-ResizableGroupManager.md` | ResizableGroupManager | 全部 | pending |
+| 05 | `tasks/05-ResizableGroupManager.md` | ResizableGroupManager | 全部 | done |
 | 06 | `tasks/06-Panel-Vue-SFC.md` | Panel (Vue SFC) | Manager | pending |
 
 Task 02-04 之間無依賴，完成 01 後可平行開發。
@@ -201,10 +205,100 @@ LayoutCalculator 的 `for` 迴圈已分三類處理：
 
 ---
 
+## Task 05 測試策略決策（2026-05-20）
+
+ResizableGroupManager 依據是否涉及 DOM layout 拆為兩層測試：
+
+| 層級 | Phase | 測什麼 | 環境 |
+|------|-------|--------|------|
+| Unit test (Vitest + jsdom) | Phase 1 | 靜態邏輯：constructor、registerPanel/unRegisterPanel、on/off、Event、getLayout | jsdom |
+| Manager E2E (Cypress) | Phase 2-4 | 純 HTML + Manager JS API → 拖曳、resize、生命週期 | 真實瀏覽器 |
+| Vue SFC E2E (Cypress) | Task 6 後 | Vue 元件 mount → 拖曳 → Panel 渲染正確 | 真實瀏覽器 |
+
+**理由**：
+- Phase 2-4 的拖曳流程與 ResizeObserver 重度依賴真實 layout（getBoundingClientRect、offsetLeft、容器寬度），在 jsdom 中全部 mock 掉測試信心度低、維護成本高
+- Manager 是對外發佈的獨立 API（使用者可不透過 Vue SFC 直接操作），與 Vue SFC 保護的是不同的使用者契約，各自需要 E2E
+- Manager E2E 先做；Vue SFC E2E 等 Task 6 完成後再做
+
+### Phase 1 完成內容（23 個測試通過）
+
+- Constructor — groupConfig + 可選 panelConfigs，初始化子模組、DragState、_active = false
+- registerPanel — 儲存 PanelData（constraints 為 null，activate 時才計算），回傳 panelId
+- unRegisterPanel — 依 id 移除，找不到不報錯
+- on / off — Map-based 事件機制，off 以參照比對移除
+- Event — 靜態 + getter 雙重存取
+- getLayout — 未 activate 回傳 null
+- _toLayoutResult — 內部 Layout → LayoutResult 轉換
+
+### 新增檔案
+
+- `src/core/Event.js` — Event enum（LayoutChange / LayoutChanged）
+- `src/core/ResizableGroupManager.js` — Manager 主體
+- `tests/core/ResizableGroupManager.test.js` — Phase 1 單元測試
+
+---
+
+## ResizableGroupManager Code Check（2026-05-20） — 已完成
+
+對 `ResizableGroupManager.js` 進行編碼風格規則檢查，5 項違規全部修正完成：
+
+| # | 違規項目 | 修正摘要 |
+|---|---------|---------|
+| 1 | 單一出口原則 | 7 個 early return 消除：反轉條件、if-else chain、抽出 `_resolveDragTarget` |
+| 2 | 語意化封裝 | `event.buttons === 0` → `PointerButtonNone` 常數 |
+| 3 | 純函式原則 | `R.append`、`R.sortBy`、`R.map` 取代 in-place mutation |
+| 4 | Ramda 一致性 | `_toLayoutResult` 改用 `R.map` + `R.fromPairs`；`registerPanel` 改用 `R.append`；`forEach` 保留原生 |
+| 5 | JSDoc @example | 22 個 private 方法全部補上 `@example` |
+
+---
+
+## Playground 手動測試環境（2026-05-20）
+
+- `playground/` 目錄下建立了 Manager 手動測試頁面（純 HTML + Manager JS API）
+- 使用 Vite dev server，啟動指令於 `playground/` 目錄，port 3001
+- 5 組 demo 覆蓋不同情境：佔滿視窗+px minSize、固定寬度+純%、混合單位、3 panels、窄範圍約束
+
+---
+
+## react-resizable-panels 差異分析（2026-05-20）
+
+對照原版原始碼，確認以下差異並處理：
+
+### 已補上
+
+| 差異 | 修正 |
+|------|------|
+| 未忽略右鍵 pointerdown/pointerup | 新增 `_isNonPrimaryMouseButton` 檢查 |
+| 未忽略已 preventDefault 的事件 | pointerdown/pointermove/pointerup 加 `event.defaultPrevented` guard |
+| 缺 `pointerleave` 處理 | 新增 `_handlePointerLeave`：拖曳中以邊界座標更新 layout |
+| 缺 `pointerout` 處理 | 新增 `_handlePointerOut`：指標移到 iframe 時 reset hover cursor |
+
+### 已確認為 v1 設計決策，不需處理
+
+| 差異 | 說明 |
+|------|------|
+| 缺 `dblclick` 雙擊回 defaultSize | v1 SPEC 未列入 |
+| 缺 `keydown` 鍵盤操作 | v1 SPEC 未列入 |
+| 每個 manager 獨立綁 listener | v1 不需多 group 共用 listener 的 reference count 機制 |
+| `setPointerCapture` 設在 `event.target` | 原版設在 separator element，v1 無 separator 概念 |
+
+### 待評估（v2+）
+
+| 差異 | 說明 | 分析文件 |
+|------|------|---------|
+| `preserve-pixel-size` resize 策略 | v1 SPEC 明確只支援 `preserve-relative-size`，pixel 保持列入後續版本 | `preserve-pixel-size-規劃.md` |
+
+### 移除項目
+
+- `static Event = Event` 移除，統一由 instance getter 存取
+
+---
+
 ## 下次 Session 接續點
 
-1. **開始 Task 05 — ResizableGroupManager TDD 開發**（依賴全部模組，Task 01-04 已完成）
-2. **討論第三類迴圈的 functional 重構方向**
+1. **討論第三類迴圈的 functional 重構方向**
+2. **Task 06 — Panel Vue SFC 開發**
+3. **評估 preserve-pixel-size 是否納入 v1.x**（分析文件：`preserve-pixel-size-規劃.md`）
 
 ---
 
