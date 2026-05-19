@@ -184,7 +184,7 @@ classDiagram
     class ParsedSize {
         <<internal>>
         +value : number
-        +unit : 'percent' | 'px'
+        +unit : CssUnit.Percent | CssUnit.Px
     }
 
     UnitConverter --> ParsedSize
@@ -292,7 +292,7 @@ UnitConverter 解析結果。
 | 欄位 | 型別 | 說明 |
 |------|------|------|
 | value | `number` | 數值 |
-| unit | `'percent' \| 'px'` | 單位類型 |
+| unit | `CssUnit.Percent \| CssUnit.Px` | 單位類型（對應值為 `'%'` / `'px'`） |
 
 #### PanelConstraints
 
@@ -570,7 +570,9 @@ parse 與 toPercent 的邊界處理策略，參考 react-resizable-panels 後調
 - 不支援的單位（`"200em"`、`"50vw"` 等）→ throw Error（v1 只支援 `%` 和 `px`）
 
 **toPercent 層**：
-- `availableSize = 0` 時不做轉換，回退預設約束（`{ minSize: 0, maxSize: 100 }`），等容器重新可見時重算
+- percent 輸入：直接回傳 `value`，不受 `availableSize` 影響
+- px 輸入 + `availableSize = 0`：回傳 `0`（無法換算），等容器重新可見時由 Manager 從原始 config 重算
+- px 輸入 + `availableSize > 0`：正常換算 `(value / availableSize) × 100`
 - 轉換結果超出 0-100 範圍 → 不 clamp，直接回傳。clamp 是 LayoutCalculator 的職責（SRP）
 
 ### 事件去重與浮點容差

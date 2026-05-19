@@ -21,7 +21,7 @@
 
 ```js
 // ParsedSize
-{ value: number, unit: 'percent' | 'px' }
+{ value: number, unit: CssUnit.Percent | CssUnit.Px }  // 對應值為 '%' | 'px'
 ```
 
 ---
@@ -37,9 +37,9 @@
 ## TODO
 
 - [x] **parse — 百分比解析**
-  - 純數字 `50` → `{ value: 50, unit: 'percent' }`
-  - 字串數字 `"50"` → `{ value: 50, unit: 'percent' }`
-  - 帶 % 字串 `"50%"` → `{ value: 50, unit: 'percent' }`
+  - 純數字 `50` → `{ value: 50, unit: '%' }`
+  - 字串數字 `"50"` → `{ value: 50, unit: '%' }`
+  - 帶 % 字串 `"50%"` → `{ value: 50, unit: '%' }`
 - [x] **parse — px 解析**
   - `"200px"` → `{ value: 200, unit: 'px' }`
 - [x] **parse — 邊界/異常輸入**
@@ -49,10 +49,12 @@
   - 非數字字串（`"abc"`、`""`）→ `parseFloat()` 得到 `NaN`，轉為 `0`，單位依規則判定
   - 不支援的單位（`"200em"`、`"50vw"`）→ throw Error
 - [x] **toPercent — 百分比輸入**
-  - `{ value: 50, unit: 'percent' }` → 直接回傳 50
+  - `{ value: 50, unit: '%' }` → 直接回傳 50
+  - availableSize 不影響結果（percent 不需要換算）
 - [x] **toPercent — px 輸入**
   - `{ value: 200, unit: 'px' }`, availableSize=1000 → 20
   - `{ value: 200, unit: 'px' }`, availableSize=500 → 40
 - [x] **toPercent — 邊界情況**
-  - availableSize=0 → 回傳 0（回退預設，等容器可見時重算）
+  - percent 輸入 + availableSize=0 → 直接回傳 value（不受 availableSize 影響）
+  - px 輸入 + availableSize=0 → 回傳 0（無法換算，等容器可見時由 Manager 從原始 config 重算）
   - 轉換結果超出 0-100 → 不 clamp，直接回傳原始計算值
