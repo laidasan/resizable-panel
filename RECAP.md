@@ -19,6 +19,7 @@
 - [x] v1 SA（系統分析/架構設計）
 - [x] v1 TDD 開發順序規劃 + Task 拆分
 - [x] **v1 TDD 開發 — Task 01 UnitConverter 完成**
+- [x] **v1 TDD 開發 — Task 02 LayoutCalculator 完成**
 
 ---
 
@@ -137,7 +138,7 @@ SA 已通過完整性檢視（Spec 8 個章節逐條比對），詳見 `V1-SA.md
 | 順序 | Task | 模組 | 依賴 | 狀態 |
 |------|------|------|------|------|
 | 01 | `tasks/01-UnitConverter.md` | UnitConverter | 無 | done |
-| 02 | `tasks/02-LayoutCalculator.md` | LayoutCalculator | UnitConverter | pending |
+| 02 | `tasks/02-LayoutCalculator.md` | LayoutCalculator | UnitConverter | done |
 | 03 | `tasks/03-HitRegionDetector.md` | HitRegionDetector | 無 | pending |
 | 04 | `tasks/04-CursorManager.md` | CursorManager | 無 | pending |
 | 05 | `tasks/05-ResizableGroupManager.md` | ResizableGroupManager | 全部 | pending |
@@ -164,10 +165,23 @@ Task 02-04 之間無依賴，完成 01 後可平行開發。
 
 ---
 
+## LayoutCalculator 設計決策（2026-05-19）
+
+| 項目 | 決定 |
+|------|------|
+| defaultSize 加總 ≠ 100% | 按比例 normalize 到 100%（沿用 react-resizable-panels） |
+| adjustLayoutByDelta 簽章 | 加入 `boundaryIndex` 參數，預留多 panel 彈性 |
+| validateLayout 衝突處理 | best-effort clamp + 重分配，永遠回傳合法 Layout |
+| adjustLayoutByDelta 衝突處理 | 無法完整套用 delta 時回傳 baseLayout（全有或全無） |
+| 浮點容差策略 | `toFixed(3)` 後比較（沿用 react-resizable-panels） |
+| 約束衝突優先序 | 第一輪 clamp 到 min/max，overflow 從後往前扣（DOM 順序前面的優先） |
+
+---
+
 ## 下次 Session 接續點
 
-1. **開始 Task 02 — LayoutCalculator TDD 開發**（依賴 UnitConverter，已完成）
-2. Task 03（HitRegionDetector）與 Task 04（CursorManager）無依賴，可平行開發
+1. **開始 Task 03 — HitRegionDetector TDD 開發**（無依賴）
+2. Task 04（CursorManager）也無依賴，可平行開發
 
 ---
 
