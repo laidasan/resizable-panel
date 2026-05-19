@@ -1,4 +1,4 @@
-import { keys, values, isNil } from 'ramda'
+import { keys, values, isNil, all, map, partition } from 'ramda'
 
 /**
  * @class LayoutCalculator
@@ -32,7 +32,7 @@ export class LayoutCalculator {
   }
 
   /**
-   * 根據 panel 配置計算初始 layout。
+   * @description 根據 panel 配置計算初始 layout。
    *
    * 流程：
    * 1. 有 defaultSize 的 panel 按指定值分配（px 透過 UnitConverter 轉為百分比）
@@ -76,7 +76,7 @@ export class LayoutCalculator {
   }
 
   /**
-   * 基於 baseLayout + delta 計算新 layout，只調整 boundaryIndex 相鄰的兩個 panel。
+   * @description 基於 baseLayout + delta 計算新 layout，只調整 boundaryIndex 相鄰的兩個 panel。
    *
    * delta 始終以 baseLayout 為基準（非累計式），避免浮點誤差漂移。
    * 兩側 panel 同時受 min/max 約束，取較小的可用 delta。
@@ -139,7 +139,7 @@ export class LayoutCalculator {
   }
 
   /**
-   * 驗證 layout 是否符合所有 panel 約束，不符合時自動修正。
+   * @description 驗證 layout 是否符合所有 panel 約束，不符合時自動修正。
    *
    * 適用場景：容器 resize 後 px 約束的百分比等價值改變，既有 layout 可能違規。
    * 永遠回傳合法 Layout（best-effort clamp），不 throw、不回傳 null。
@@ -168,7 +168,7 @@ export class LayoutCalculator {
   }
 
   /**
-   * 比較兩個 layout 是否相等，使用 toFixed(3) 浮點容差。
+   * @description 比較兩個 layout 是否相等，使用 toFixed(3) 浮點容差。
    *
    * 比較邏輯：每個值先 toFixed(3) 再 parseFloat，然後以 === 比較。
    * 例如 49.9999 和 50.0001 四捨五入後都是 50.000，判定相等。
@@ -200,19 +200,19 @@ export class LayoutCalculator {
     const keysA = keys(a)
     const keysB = keys(b)
 
-    let result = keysA.length === keysB.length
+    const sameLength = keysA.length === keysB.length
+    const allValuesEqual = all(id =>
+      !isNil(b[id]) && this._formatNumber(a[id]) === this._formatNumber(b[id])
+    )(keysA)
 
-    for (let i = 0; i < keysA.length && result; i++) {
-      const id = keysA[i]
-      result = !isNil(b[id]) && this._formatNumber(a[id]) === this._formatNumber(b[id])
-    }
+    const result = sameLength && allValuesEqual
 
     return result
   }
 
   /**
    * @private
-   * 將數值四捨五入到 PRECISION 位小數，用於浮點容差比較。
+   * @description 將數值四捨五入到 PRECISION 位小數，用於浮點容差比較。
    *
    * @param {number} number - 待格式化的數值
    * @returns {number} 四捨五入後的數值
@@ -228,7 +228,7 @@ export class LayoutCalculator {
 
   /**
    * @private
-   * 將 panels 依據是否有 defaultSize 分為兩組。
+   * @description 將 panels 依據是否有 defaultSize 分為兩組。
    * 有 defaultSize 的 panel 會透過 UnitConverter 將原始值轉為百分比。
    *
    * @param {PanelData[]} panels - panel 資料陣列
@@ -244,27 +244,23 @@ export class LayoutCalculator {
    * // }
    */
   _partitionByDefaultSize(panels, availableSize) {
-    const withDefault = []
-    const withoutDefault = []
+    const hasDefaultSize = panel => !isNil(panel.config.defaultSize)
+    const toPercentEntry = panel => {
+      const parsed = this._unitConverter.parse(panel.config.defaultSize)
+      const percent = this._unitConverter.toPercent(parsed, availableSize)
 
-    for (const panel of panels) {
-      const rawDefault = panel.config.defaultSize
-
-      if (isNil(rawDefault)) {
-        withoutDefault.push(panel)
-      } else {
-        const parsed = this._unitConverter.parse(rawDefault)
-        const percent = this._unitConverter.toPercent(parsed, availableSize)
-        withDefault.push({ panel, percent })
-      }
+      return { panel, percent }
     }
+
+    const [withDefaultRaw, withoutDefault] = partition(hasDefaultSize)(panels)
+    const withDefault = map(toPercentEntry)(withDefaultRaw)
 
     return { withDefault, withoutDefault }
   }
 
   /**
    * @private
-   * 分配初始尺寸。有 defaultSize 的 panel 按指定百分比分配，
+   * @description 分配初始尺寸。有 defaultSize 的 panel 按指定百分比分配，
    * 無 defaultSize 的 panel 均分剩餘空間。
    *
    * 回傳的 layout 加總不保證為 100%（後續由 _normalizeLayout 處理）。
@@ -307,7 +303,7 @@ export class LayoutCalculator {
 
   /**
    * @private
-   * 將 layout 按比例縮放，使加總等於 100%。
+   * @description 將 layout 按比例縮放，使加總等於 100%。
    * 若加總已為 100%（含浮點容差）或為 0，則原樣回傳。
    *
    * @param {Layout} layout - 待 normalize 的 layout
@@ -326,23 +322,16 @@ export class LayoutCalculator {
     const total = values(layout).reduce((sum, v) => sum + v, 0)
     const needsNormalize = total !== 0 && this._formatNumber(total) !== 100
 
-    let result = layout
-
-    if (needsNormalize) {
-      const ratio = 100 / total
-      result = {}
-
-      for (const id of keys(layout)) {
-        result[id] = layout[id] * ratio
-      }
-    }
+    const result = needsNormalize
+      ? map(v => v * (100 / total))(layout)
+      : layout
 
     return result
   }
 
   /**
    * @private
-   * 套用 min/max 約束並確保加總為 100%。
+   * @description 套用 min/max 約束並確保加總為 100%。
    *
    * 流程：
    * 1. 每個 panel 先 clamp 到自身 min/max 範圍
@@ -379,7 +368,7 @@ export class LayoutCalculator {
 
   /**
    * @private
-   * 將 clamp 後的溢出量重分配給可調整的 panel。
+   * @description 將 clamp 後的溢出量重分配給可調整的 panel。
    * overflow > 0 時縮減 panel，overflow < 0 時擴增 panel。
    *
    * @param {Layout} layout - clamp 後的 layout（加總 ≠ 100%）
@@ -397,7 +386,7 @@ export class LayoutCalculator {
 
   /**
    * @private
-   * 從後往前縮減 panel 尺寸以消化溢出量。
+   * @description 從後往前縮減 panel 尺寸以消化溢出量。
    *
    * 兩輪處理：
    * 1. 第一輪：只扣除各 panel 在 minSize 以上的可縮減量（respect 約束）
@@ -441,7 +430,7 @@ export class LayoutCalculator {
 
   /**
    * @private
-   * 從後往前擴增 panel 尺寸以填補不足量。
+   * @description 從後往前擴增 panel 尺寸以填補不足量。
    * 每個 panel 最多擴增到自身 maxSize。
    *
    * @param {Layout} layout - 需要擴增的 layout
@@ -473,7 +462,7 @@ export class LayoutCalculator {
 
   /**
    * @private
-   * 將數值限制在 [min, max] 範圍內。
+   * @description 將數值限制在 [min, max] 範圍內。
    *
    * @param {number} value - 待限制的數值
    * @param {number} min - 下限
