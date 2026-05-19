@@ -10,79 +10,79 @@ describe('UnitConverter', () => {
 
   describe('parse', () => {
     describe('百分比解析', () => {
-      it('純數字 → percent', () => {
+      it('parse_Should_ReturnPercent_When_InputIsNumber', () => {
         expect(converter.parse(50)).toEqual({ value: 50, unit: '%' })
       })
 
-      it('字串數字 → percent', () => {
+      it('parse_Should_ReturnPercent_When_InputIsNumericString', () => {
         expect(converter.parse('50')).toEqual({ value: 50, unit: '%' })
       })
 
-      it('帶 % 字串 → percent', () => {
+      it('parse_Should_ReturnPercent_When_InputHasPercentSuffix', () => {
         expect(converter.parse('50%')).toEqual({ value: 50, unit: '%' })
       })
     })
 
     describe('px 解析', () => {
-      it('帶 px 字串 → px', () => {
+      it('parse_Should_ReturnPx_When_InputHasPxSuffix', () => {
         expect(converter.parse('200px')).toEqual({ value: 200, unit: 'px' })
       })
     })
 
     describe('邊界與異常輸入', () => {
-      it('0 → percent', () => {
+      it('parse_Should_ReturnZeroPercent_When_InputIsZero', () => {
         expect(converter.parse(0)).toEqual({ value: 0, unit: '%' })
       })
 
-      it('"0" → percent', () => {
+      it('parse_Should_ReturnZeroPercent_When_InputIsZeroString', () => {
         expect(converter.parse('0')).toEqual({ value: 0, unit: '%' })
       })
 
-      it('"0%" → percent', () => {
+      it('parse_Should_ReturnZeroPercent_When_InputIsZeroPercentString', () => {
         expect(converter.parse('0%')).toEqual({ value: 0, unit: '%' })
       })
 
-      it('"0px" → px', () => {
+      it('parse_Should_ReturnZeroPx_When_InputIsZeroPxString', () => {
         expect(converter.parse('0px')).toEqual({ value: 0, unit: 'px' })
       })
 
-      it('小數百分比 "33.33%" → percent', () => {
+      it('parse_Should_ReturnDecimalPercent_When_InputIsDecimalPercentString', () => {
         expect(converter.parse('33.33%')).toEqual({ value: 33.33, unit: '%' })
       })
 
-      it('小數 px "150.5px" → px', () => {
+      it('parse_Should_ReturnDecimalPx_When_InputIsDecimalPxString', () => {
         expect(converter.parse('150.5px')).toEqual({ value: 150.5, unit: 'px' })
       })
 
-      it('負數純數字照常解析', () => {
+      it('parse_Should_ReturnNegativePercent_When_InputIsNegativeNumber', () => {
         expect(converter.parse(-10)).toEqual({ value: -10, unit: '%' })
       })
 
-      it('負數百分比字串照常解析', () => {
+      it('parse_Should_ReturnNegativePercent_When_InputIsNegativePercentString', () => {
         expect(converter.parse('-5%')).toEqual({ value: -5, unit: '%' })
       })
 
-      it('負數 px 字串照常解析', () => {
+      it('parse_Should_ReturnNegativePx_When_InputIsNegativePxString', () => {
         expect(converter.parse('-100px')).toEqual({ value: -100, unit: 'px' })
       })
 
-      it('非數字字串 → NaN 轉為 0, 單位為 percent', () => {
+      it('parse_Should_ReturnZeroPercent_When_InputIsNonNumericString', () => {
         expect(converter.parse('abc')).toEqual({ value: 0, unit: '%' })
       })
 
-      it('空字串 → NaN 轉為 0, 單位為 percent', () => {
+      it('parse_Should_ReturnZeroPercent_When_InputIsEmptyString', () => {
         expect(converter.parse('')).toEqual({ value: 0, unit: '%' })
       })
 
-      it('不支援的單位 "200em" → throw Error', () => {
+      it('parse_Should_ThrowError_When_UnitIsEm', () => {
         expect(() => converter.parse('200em')).toThrow()
       })
 
-      it('不支援的單位 "50vw" → throw Error', () => {
+      it('parse_Should_ThrowError_When_UnitIsVw', () => {
         expect(() => converter.parse('50vw')).toThrow()
       })
 
-      it('不支援的單位 "100rem" → throw Error', () => {
+      it('parse_Should_ThrowError_When_UnitIsRem', () => {
         expect(() => converter.parse('100rem')).toThrow()
       })
     })
@@ -90,35 +90,35 @@ describe('UnitConverter', () => {
 
   describe('toPercent', () => {
     describe('百分比輸入', () => {
-      it('直接回傳 value', () => {
+      it('toPercent_Should_ReturnValue_When_UnitIsPercent', () => {
         expect(converter.toPercent({ value: 50, unit: '%' }, 1000)).toBe(50)
       })
 
-      it('availableSize 不影響結果', () => {
+      it('toPercent_Should_IgnoreAvailableSize_When_UnitIsPercent', () => {
         expect(converter.toPercent({ value: 50, unit: '%' }, 0)).toBe(50)
       })
     })
 
     describe('px 輸入', () => {
-      it('200px / 1000 = 20%', () => {
+      it('toPercent_Should_Return20Percent_When_200pxWith1000AvailableSize', () => {
         expect(converter.toPercent({ value: 200, unit: 'px' }, 1000)).toBe(20)
       })
 
-      it('200px / 500 = 40%', () => {
+      it('toPercent_Should_Return40Percent_When_200pxWith500AvailableSize', () => {
         expect(converter.toPercent({ value: 200, unit: 'px' }, 500)).toBe(40)
       })
     })
 
     describe('邊界情況', () => {
-      it('px 輸入 + availableSize=0 → 回傳 0', () => {
+      it('toPercent_Should_ReturnZero_When_AvailableSizeIsZero', () => {
         expect(converter.toPercent({ value: 200, unit: 'px' }, 0)).toBe(0)
       })
 
-      it('轉換結果超過 100 → 不 clamp, 直接回傳', () => {
+      it('toPercent_Should_NotClamp_When_ResultExceeds100', () => {
         expect(converter.toPercent({ value: 600, unit: 'px' }, 500)).toBe(120)
       })
 
-      it('負數 px → 不 clamp, 直接回傳負值', () => {
+      it('toPercent_Should_ReturnNegative_When_PxValueIsNegative', () => {
         expect(converter.toPercent({ value: -100, unit: 'px' }, 1000)).toBe(-10)
       })
     })

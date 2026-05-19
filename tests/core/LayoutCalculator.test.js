@@ -33,48 +33,48 @@ describe('LayoutCalculator', () => {
   })
 
   describe('layoutsEqual', () => {
-    it('完全相同 → true', () => {
+    it('layoutsEqual_Should_ReturnTrue_When_LayoutsAreIdentical', () => {
       expect(calculator.layoutsEqual({ a: 50, b: 50 }, { a: 50, b: 50 })).toBe(true)
     })
 
-    it('空 layout → true', () => {
+    it('layoutsEqual_Should_ReturnTrue_When_BothLayoutsAreEmpty', () => {
       expect(calculator.layoutsEqual({}, {})).toBe(true)
     })
 
-    it('浮點微差（小數第四位以下）→ true', () => {
+    it('layoutsEqual_Should_ReturnTrue_When_DifferenceIsBelowFourthDecimal', () => {
       expect(calculator.layoutsEqual(
         { a: 49.9999, b: 50.0001 },
         { a: 50, b: 50 }
       )).toBe(true)
     })
 
-    it('實質差異 → false', () => {
+    it('layoutsEqual_Should_ReturnFalse_When_ValuesHaveSubstantialDifference', () => {
       expect(calculator.layoutsEqual({ a: 48, b: 52 }, { a: 50, b: 50 })).toBe(false)
     })
 
-    it('小數第三位差異 → false', () => {
+    it('layoutsEqual_Should_ReturnFalse_When_DifferenceIsAtThirdDecimal', () => {
       expect(calculator.layoutsEqual(
         { a: 49.999, b: 50.001 },
         { a: 50, b: 50 }
       )).toBe(false)
     })
 
-    it('key 數量不同 → false', () => {
+    it('layoutsEqual_Should_ReturnFalse_When_KeyCountDiffers', () => {
       expect(calculator.layoutsEqual({ a: 50, b: 50 }, { a: 100 })).toBe(false)
     })
 
-    it('key 名稱不同 → false', () => {
+    it('layoutsEqual_Should_ReturnFalse_When_KeyNamesDiffer', () => {
       expect(calculator.layoutsEqual({ a: 50, b: 50 }, { c: 50, d: 50 })).toBe(false)
     })
 
-    it('空 vs 非空 → false', () => {
+    it('layoutsEqual_Should_ReturnFalse_When_OneLayoutIsEmpty', () => {
       expect(calculator.layoutsEqual({}, { a: 100 })).toBe(false)
     })
   })
 
   describe('calculateInitialLayout', () => {
     describe('均分', () => {
-      it('2 panels 無 defaultSize → 各 50%', () => {
+      it('calculateInitialLayout_Should_ReturnEqualSplit_When_TwoPanelsWithoutDefaultSize', () => {
         const panels = [
           makePanelDataWithConstraints('a'),
           makePanelDataWithConstraints('b')
@@ -84,7 +84,7 @@ describe('LayoutCalculator', () => {
         expect(layout).toEqual({ a: 50, b: 50 })
       })
 
-      it('3 panels 無 defaultSize → 各 33.333%', () => {
+      it('calculateInitialLayout_Should_ReturnEqualSplit_When_ThreePanelsWithoutDefaultSize', () => {
         const panels = [
           makePanelDataWithConstraints('a'),
           makePanelDataWithConstraints('b'),
@@ -98,7 +98,7 @@ describe('LayoutCalculator', () => {
         expect(layout.c).toBeCloseTo(33.333, 2)
       })
 
-      it('均分後受 min/max clamp', () => {
+      it('calculateInitialLayout_Should_ClampToMinSize_When_EqualSplitViolatesConstraints', () => {
         const panels = [
           makePanelDataWithConstraints('a', { minSize: 60 }),
           makePanelDataWithConstraints('b')
@@ -112,7 +112,7 @@ describe('LayoutCalculator', () => {
     })
 
     describe('有 defaultSize', () => {
-      it('defaultSize 加總 = 100% → 直接使用', () => {
+      it('calculateInitialLayout_Should_UseDefaultSizes_When_SumEquals100', () => {
         const panels = [
           makePanelDataWithConstraints('a', { defaultSize: '70%' }),
           makePanelDataWithConstraints('b', { defaultSize: '30%' })
@@ -122,7 +122,7 @@ describe('LayoutCalculator', () => {
         expect(layout).toEqual({ a: 70, b: 30 })
       })
 
-      it('defaultSize 加總 ≠ 100% → 按比例 normalize', () => {
+      it('calculateInitialLayout_Should_NormalizeProportionally_When_DefaultSizeSumIsNot100', () => {
         const panels = [
           makePanelDataWithConstraints('a', { defaultSize: '30%' }),
           makePanelDataWithConstraints('b', { defaultSize: '40%' })
@@ -134,7 +134,7 @@ describe('LayoutCalculator', () => {
         expect(layout.b).toBeCloseTo(57.143, 2)
       })
 
-      it('defaultSize 受 min clamp', () => {
+      it('calculateInitialLayout_Should_ClampToMinSize_When_DefaultSizeBelowMin', () => {
         const panels = [
           makePanelDataWithConstraints('a', { defaultSize: '20%', minSize: 30 }),
           makePanelDataWithConstraints('b', { defaultSize: '80%' })
@@ -145,7 +145,7 @@ describe('LayoutCalculator', () => {
         expect(layoutSum(layout)).toBeCloseTo(100, 5)
       })
 
-      it('defaultSize 受 max clamp', () => {
+      it('calculateInitialLayout_Should_ClampToMaxSize_When_DefaultSizeAboveMax', () => {
         const panels = [
           makePanelDataWithConstraints('a', { defaultSize: '80%', maxSize: 60 }),
           makePanelDataWithConstraints('b', { defaultSize: '20%' })
@@ -158,7 +158,7 @@ describe('LayoutCalculator', () => {
     })
 
     describe('混合（部分有 defaultSize）', () => {
-      it('一個有 defaultSize、一個沒有 → 沒有的拿剩餘', () => {
+      it('calculateInitialLayout_Should_AssignRemainder_When_OnePanelHasNoDefaultSize', () => {
         const panels = [
           makePanelDataWithConstraints('a', { defaultSize: '70%' }),
           makePanelDataWithConstraints('b')
@@ -170,7 +170,7 @@ describe('LayoutCalculator', () => {
         expect(layoutSum(layout)).toBe(100)
       })
 
-      it('兩個有 defaultSize、一個沒有 → 沒有的拿剩餘', () => {
+      it('calculateInitialLayout_Should_AssignRemainder_When_TwoHaveDefaultSizeAndOneDoesNot', () => {
         const panels = [
           makePanelDataWithConstraints('a', { defaultSize: '40%' }),
           makePanelDataWithConstraints('b'),
@@ -184,7 +184,7 @@ describe('LayoutCalculator', () => {
         expect(layoutSum(layout)).toBe(100)
       })
 
-      it('剩餘空間由多個無 defaultSize panel 均分', () => {
+      it('calculateInitialLayout_Should_SplitRemainderEqually_When_MultiplePanelsHaveNoDefaultSize', () => {
         const panels = [
           makePanelDataWithConstraints('a', { defaultSize: '40%' }),
           makePanelDataWithConstraints('b'),
@@ -200,7 +200,7 @@ describe('LayoutCalculator', () => {
     })
 
     describe('defaultSize 為 px', () => {
-      it('px 轉為百分比後分配', () => {
+      it('calculateInitialLayout_Should_ConvertToPercent_When_DefaultSizeIsPx', () => {
         const panels = [
           makePanelDataWithConstraints('a', { defaultSize: '200px' }),
           makePanelDataWithConstraints('b')
@@ -212,7 +212,7 @@ describe('LayoutCalculator', () => {
         expect(layoutSum(layout)).toBe(100)
       })
 
-      it('混合 px 和 % defaultSize → normalize 到 100%', () => {
+      it('calculateInitialLayout_Should_NormalizeTo100_When_MixingPxAndPercentDefaultSize', () => {
         const panels = [
           makePanelDataWithConstraints('a', { defaultSize: '300px' }),
           makePanelDataWithConstraints('b', { defaultSize: '40%' })
@@ -224,7 +224,7 @@ describe('LayoutCalculator', () => {
         expect(layoutSum(layout)).toBeCloseTo(100, 5)
       })
 
-      it('px defaultSize + 無 defaultSize → 無 defaultSize 拿剩餘', () => {
+      it('calculateInitialLayout_Should_AssignRemainder_When_PxDefaultSizeWithNoDefaultSizePanel', () => {
         const panels = [
           makePanelDataWithConstraints('a', { defaultSize: '300px' }),
           makePanelDataWithConstraints('b')
@@ -238,7 +238,7 @@ describe('LayoutCalculator', () => {
     })
 
     describe('約束衝突', () => {
-      it('minSize 加總 > 100% → best-effort clamp，按 DOM 順序優先', () => {
+      it('calculateInitialLayout_Should_PrioritizeByDomOrder_When_MinSizeSumExceeds100', () => {
         const panels = [
           makePanelDataWithConstraints('a', { minSize: 60 }),
           makePanelDataWithConstraints('b', { minSize: 60 })
@@ -250,7 +250,7 @@ describe('LayoutCalculator', () => {
         expect(layoutSum(layout)).toBe(100)
       })
 
-      it('minSize 加總剛好 100% → 各自取 minSize', () => {
+      it('calculateInitialLayout_Should_UseMinSizes_When_MinSizeSumEquals100', () => {
         const panels = [
           makePanelDataWithConstraints('a', { minSize: 40 }),
           makePanelDataWithConstraints('b', { minSize: 60 })
@@ -266,7 +266,7 @@ describe('LayoutCalculator', () => {
 
   describe('adjustLayoutByDelta', () => {
     describe('基本 delta 調整', () => {
-      it('正 delta → boundaryIndex 左側增大，右側縮小', () => {
+      it('adjustLayoutByDelta_Should_GrowLeftShrinkRight_When_DeltaIsPositive', () => {
         const panels = [
           makePanelDataWithConstraints('a'),
           makePanelDataWithConstraints('b')
@@ -279,7 +279,7 @@ describe('LayoutCalculator', () => {
         expect(layoutSum(layout)).toBe(100)
       })
 
-      it('負 delta → boundaryIndex 左側縮小，右側增大', () => {
+      it('adjustLayoutByDelta_Should_ShrinkLeftGrowRight_When_DeltaIsNegative', () => {
         const panels = [
           makePanelDataWithConstraints('a'),
           makePanelDataWithConstraints('b')
@@ -292,7 +292,7 @@ describe('LayoutCalculator', () => {
         expect(layoutSum(layout)).toBe(100)
       })
 
-      it('delta = 0 → layout 不變', () => {
+      it('adjustLayoutByDelta_Should_ReturnSameLayout_When_DeltaIsZero', () => {
         const panels = [
           makePanelDataWithConstraints('a'),
           makePanelDataWithConstraints('b')
@@ -305,7 +305,7 @@ describe('LayoutCalculator', () => {
     })
 
     describe('雙向 clamp', () => {
-      it('正 delta 使右側碰 minSize → clamp', () => {
+      it('adjustLayoutByDelta_Should_ClampRightToMinSize_When_PositiveDeltaExceedsRightCapacity', () => {
         const panels = [
           makePanelDataWithConstraints('a'),
           makePanelDataWithConstraints('b', { minSize: 30 })
@@ -318,7 +318,7 @@ describe('LayoutCalculator', () => {
         expect(layoutSum(layout)).toBe(100)
       })
 
-      it('負 delta 使左側碰 minSize → clamp', () => {
+      it('adjustLayoutByDelta_Should_ClampLeftToMinSize_When_NegativeDeltaExceedsLeftCapacity', () => {
         const panels = [
           makePanelDataWithConstraints('a', { minSize: 20 }),
           makePanelDataWithConstraints('b')
@@ -331,7 +331,7 @@ describe('LayoutCalculator', () => {
         expect(layoutSum(layout)).toBe(100)
       })
 
-      it('正 delta 使左側碰 maxSize → clamp', () => {
+      it('adjustLayoutByDelta_Should_ClampLeftToMaxSize_When_PositiveDeltaExceedsLeftMaxCapacity', () => {
         const panels = [
           makePanelDataWithConstraints('a', { maxSize: 60 }),
           makePanelDataWithConstraints('b')
@@ -346,7 +346,7 @@ describe('LayoutCalculator', () => {
     })
 
     describe('delta 基於 baseLayout', () => {
-      it('多次呼叫以同一 baseLayout，結果一致（非累計）', () => {
+      it('adjustLayoutByDelta_Should_ReturnConsistentResult_When_CalledMultipleTimesWithSameBaseLayout', () => {
         const panels = [
           makePanelDataWithConstraints('a'),
           makePanelDataWithConstraints('b')
@@ -361,7 +361,7 @@ describe('LayoutCalculator', () => {
     })
 
     describe('無法套用', () => {
-      it('左側已達 maxSize，正 delta 無法套用 → 回傳 baseLayout', () => {
+      it('adjustLayoutByDelta_Should_ReturnBaseLayout_When_LeftAlreadyAtMaxAndDeltaIsPositive', () => {
         const panels = [
           makePanelDataWithConstraints('a', { maxSize: 50 }),
           makePanelDataWithConstraints('b', { minSize: 50 })
@@ -372,7 +372,7 @@ describe('LayoutCalculator', () => {
         expect(layout).toEqual(baseLayout)
       })
 
-      it('右側已達 maxSize，負 delta 無法套用 → 回傳 baseLayout', () => {
+      it('adjustLayoutByDelta_Should_ReturnBaseLayout_When_RightAlreadyAtMaxAndDeltaIsNegative', () => {
         const panels = [
           makePanelDataWithConstraints('a', { minSize: 50 }),
           makePanelDataWithConstraints('b', { maxSize: 50 })
@@ -385,7 +385,7 @@ describe('LayoutCalculator', () => {
     })
 
     describe('100% 不變式', () => {
-      it('大 delta clamp 後加總仍為 100%', () => {
+      it('adjustLayoutByDelta_Should_MaintainSumOf100_When_LargeDeltaIsClamped', () => {
         const panels = [
           makePanelDataWithConstraints('a', { minSize: 10, maxSize: 90 }),
           makePanelDataWithConstraints('b', { minSize: 10, maxSize: 90 })
@@ -398,7 +398,7 @@ describe('LayoutCalculator', () => {
     })
 
     describe('多 panel（boundaryIndex > 0）', () => {
-      it('3 panels, boundaryIndex=1 → 調整 panel[1] 和 panel[2]', () => {
+      it('adjustLayoutByDelta_Should_AdjustMiddleAndRight_When_BoundaryIndexIs1', () => {
         const panels = [
           makePanelDataWithConstraints('a'),
           makePanelDataWithConstraints('b'),
@@ -413,7 +413,7 @@ describe('LayoutCalculator', () => {
         expect(layoutSum(layout)).toBe(100)
       })
 
-      it('3 panels, boundaryIndex=0 → 調整 panel[0] 和 panel[1]', () => {
+      it('adjustLayoutByDelta_Should_AdjustLeftAndMiddle_When_BoundaryIndexIs0', () => {
         const panels = [
           makePanelDataWithConstraints('a'),
           makePanelDataWithConstraints('b'),
@@ -432,7 +432,7 @@ describe('LayoutCalculator', () => {
 
   describe('validateLayout', () => {
     describe('約束合法', () => {
-      it('layout 符合所有約束 → 原樣回傳', () => {
+      it('validateLayout_Should_ReturnOriginalLayout_When_AllConstraintsSatisfied', () => {
         const panels = [
           makePanelDataWithConstraints('a', { minSize: 20, maxSize: 80 }),
           makePanelDataWithConstraints('b', { minSize: 20, maxSize: 80 })
@@ -445,7 +445,7 @@ describe('LayoutCalculator', () => {
     })
 
     describe('約束不合法', () => {
-      it('panel 低於 minSize → clamp 到 minSize，重分配剩餘', () => {
+      it('validateLayout_Should_ClampToMinAndRedistribute_When_PanelBelowMinSize', () => {
         const panels = [
           makePanelDataWithConstraints('a', { minSize: 40 }),
           makePanelDataWithConstraints('b')
@@ -458,7 +458,7 @@ describe('LayoutCalculator', () => {
         expect(layoutSum(result)).toBe(100)
       })
 
-      it('panel 超過 maxSize → clamp 到 maxSize，重分配剩餘', () => {
+      it('validateLayout_Should_ClampToMaxAndRedistribute_When_PanelAboveMaxSize', () => {
         const panels = [
           makePanelDataWithConstraints('a', { maxSize: 60 }),
           makePanelDataWithConstraints('b')
@@ -471,7 +471,7 @@ describe('LayoutCalculator', () => {
         expect(layoutSum(result)).toBe(100)
       })
 
-      it('多 panel 同時違規 → 按 DOM 順序 clamp + 重分配', () => {
+      it('validateLayout_Should_ClampByDomOrder_When_MultiplePanelsViolateConstraints', () => {
         const panels = [
           makePanelDataWithConstraints('a', { minSize: 30 }),
           makePanelDataWithConstraints('b', { minSize: 30 }),
@@ -487,7 +487,7 @@ describe('LayoutCalculator', () => {
     })
 
     describe('衝突處理', () => {
-      it('minSize 加總 > 100% → best-effort clamp，永遠回傳合法 Layout', () => {
+      it('validateLayout_Should_ReturnValidLayout_When_MinSizeSumExceeds100', () => {
         const panels = [
           makePanelDataWithConstraints('a', { minSize: 60 }),
           makePanelDataWithConstraints('b', { minSize: 60 })
