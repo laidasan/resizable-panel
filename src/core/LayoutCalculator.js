@@ -23,12 +23,41 @@ import { keys, values, isNil, all, map, partition, fromPairs, sum } from 'ramda'
  * // => { main: 70, side: 30 }
  */
 export class LayoutCalculator {
-  static PRECISION = 3
+  static Percision = 3
 
   _unitConverter = null
 
   constructor(unitConverter) {
     this._unitConverter = unitConverter
+  }
+
+  /**
+   * @description 驗證 layout 是否符合所有 panel 約束，不符合時自動修正。
+   *
+   * 適用場景：容器 resize 後 px 約束的百分比等價值改變，既有 layout 可能違規。
+   * 永遠回傳合法 Layout（best-effort clamp），不 throw、不回傳 null。
+   *
+   * @param {Layout} layout - 待驗證的 layout
+   * @param {PanelData[]} panels - panel 資料陣列，順序依 DOM 位置
+   * @returns {Layout} 合法的 layout（加總 = 100）。若原本合法則值不變
+   *
+   * @example
+   * // 合法 → 原樣回傳
+   * calculator.validateLayout({ a: 50, b: 50 }, panels)
+   * // => { a: 50, b: 50 }
+   *
+   * @example
+   * // panel a minSize=40，layout 中 a=30 違規 → clamp 並重分配
+   * calculator.validateLayout({ a: 30, b: 70 }, panels)
+   * // => { a: 40, b: 60 }
+   *
+   * @example
+   * // 衝突：兩個 panel minSize=60（加總 120%）→ DOM 順序前面的優先
+   * calculator.validateLayout({ a: 50, b: 50 }, panels)
+   * // => { a: 60, b: 40 }
+   */
+  validateLayout(layout, panels) {
+    return this._applyConstraints(layout, panels)
   }
 
   /**
@@ -66,13 +95,136 @@ export class LayoutCalculator {
    * // => { a: 20, b: 80 }
    */
   calculateInitialLayout(panels, availableSize) {
-    const { withDefault, withoutDefault } = this._partitionByDefaultSize(panels, availableSize)
+    const { defaultSizePanels, nonDefaultPanelDataList } = this._partitionByDefaultSize(panels, availableSize)
 
-    const rawLayout = this._allocateDefaultSizes(withDefault, withoutDefault)
+    const rawLayout = this._allocateDefaultSizes(defaultSizePanels, nonDefaultPanelDataList)
     const normalizedLayout = this._normalizeLayout(rawLayout)
-    const result = this._applyConstraints(normalizedLayout, panels)
 
-    return result
+    return this._applyConstraints(normalizedLayout, panels)
+  }
+
+
+  /**
+   * @private
+   * @description 分配初始尺寸。有 defaultSize 的 panel 按指定百分比分配，
+   * 無 defaultSize 的 panel 均分剩餘空間。
+   *
+   * 回傳的 layout 加總不保證為 100%（後續由 _normalizeLayout 處理）。
+   *
+   * @param {Array<{ panel: PanelData, percent: number }>} defaultSizePanels - 有 defaultSize 的 panel（已轉為百分比）
+   * @param {PanelData[]} nonDefaultPanelDataList - 無 defaultSize 的 panel
+   * @returns {Layout} 未 normalize 的初始 layout
+   *
+   * @example
+   * // defaultSizePanels: [{ panel: panelA, percent: 70 }], nonDefaultPanelDataList: [panelB]
+   * this._allocateDefaultSizes(defaultSizePanels, nonDefaultPanelDataList)
+   * // => { a: 70, b: 30 }
+   *
+   * @example
+   * // 全部無 defaultSize
+   * this._allocateDefaultSizes([], [panelA, panelB])
+   * // => { a: 50, b: 50 }
+   */
+  _allocateDefaultSizes(defaultSizePanels, nonDefaultPanelDataList) {
+    const defaultSizePanelEntries = map(({ panel, percent }) => [panel.id, percent])(defaultSizePanels)
+    const usedPercent = sum(map(({ percent }) => percent)(defaultSizePanels))
+
+    const remaining = 100 - usedPercent
+    const remaingEachPercent = nonDefaultPanelDataList.length > 0 ? remaining / nonDefaultPanelDataList.length : 0
+    const remainingPanelEntries = map(panel => [panel.id, remaingEachPercent])(nonDefaultPanelDataList)
+
+    return fromPairs([...defaultSizePanelEntries, ...remainingPanelEntries])
+  }
+
+  /**
+   * @private
+   * @description 將 layout 按比例縮放，使加總等於 100%。
+   * 若加總已為 100%（含浮點容差）或為 0，則原樣回傳。
+   *
+   * @param {Layout} layout - 待 normalize 的 layout
+   * @returns {Layout} 加總為 100% 的 layout
+   *
+   * @example
+   * this._normalizeLayout({ a: 30, b: 40 })
+   * // => { a: 42.857, b: 57.143 }  （按 30:40 比例 normalize）
+   *
+   * @example
+   * // 已為 100% → 原樣回傳
+   * this._normalizeLayout({ a: 60, b: 40 })
+   * // => { a: 60, b: 40 }
+   */
+  _normalizeLayout(layout) {
+    const total = values(layout).reduce((sum, v) => sum + v, 0)
+    const needsNormalize = total !== 0 && this._formatNumber(total) !== 100
+
+    return needsNormalize
+      ? map(v => v * (100 / total))(layout)
+      : layout
+  }
+
+  /**
+   * @private
+   * @description 將數值四捨五入到 Percision 位小數，用於浮點容差比較。
+   *
+   * @param {number} number - 待格式化的數值
+   * @returns {number} 四捨五入後的數值
+   *
+   * @example
+   * this._formatNumber(49.9999) // => 50
+   * this._formatNumber(50.0004) // => 50
+   * this._formatNumber(50.001)  // => 50.001
+   */
+  _formatNumber(number) {
+    return parseFloat(number.toFixed(LayoutCalculator.Percision))
+  }
+
+  /**
+   * @private
+   * @description 套用 min/max 約束並確保加總為 100%。
+   *
+   * 流程：
+   * 1. 每個 panel 先 clamp 到自身 min/max 範圍
+   * 2. 若 clamp 後加總 ≠ 100%，透過 _redistributeOverflow 重分配溢出量
+   *
+   * @param {Layout} layout - 待套用約束的 layout
+   * @param {PanelData[]} panels - panel 資料陣列，順序依 DOM 位置
+   * @returns {Layout} 符合約束且加總為 100% 的 layout
+   *
+   * @example
+   * // panel a minSize=40，layout 中 a=30 違規
+   * this._applyConstraints({ a: 30, b: 70 }, panels)
+   * // => { a: 40, b: 60 }
+   */
+  _applyConstraints(layout, panels) {
+    const clampedEntries = map(panel => [
+      panel.id,
+      this._clampValue(layout[panel.id], panel.constraints.minSize, panel.constraints.maxSize)
+    ])(panels)
+    const result = fromPairs(clampedEntries)
+
+    const overflowSize = sum(values(result)) - 100
+
+    return this._formatNumber(overflowSize) !== 0
+      ? this._redistributeOverflow(result, panels, overflowSize)
+      : result
+  }
+
+  /**
+   * @private
+   * @description 將數值限制在 [min, max] 範圍內。
+   *
+   * @param {number} value - 待限制的數值
+   * @param {number} min - 下限
+   * @param {number} max - 上限
+   * @returns {number} 限制後的數值
+   *
+   * @example
+   * this._clampValue(120, 0, 100) // => 100
+   * this._clampValue(-5, 0, 100)  // => 0
+   * this._clampValue(50, 0, 100)  // => 50
+   */
+  _clampValue(value, min, max) {
+    return Math.min(Math.max(value, min), max)
   }
 
   /**
@@ -139,35 +291,6 @@ export class LayoutCalculator {
   }
 
   /**
-   * @description 驗證 layout 是否符合所有 panel 約束，不符合時自動修正。
-   *
-   * 適用場景：容器 resize 後 px 約束的百分比等價值改變，既有 layout 可能違規。
-   * 永遠回傳合法 Layout（best-effort clamp），不 throw、不回傳 null。
-   *
-   * @param {Layout} layout - 待驗證的 layout
-   * @param {PanelData[]} panels - panel 資料陣列，順序依 DOM 位置
-   * @returns {Layout} 合法的 layout（加總 = 100）。若原本合法則值不變
-   *
-   * @example
-   * // 合法 → 原樣回傳
-   * calculator.validateLayout({ a: 50, b: 50 }, panels)
-   * // => { a: 50, b: 50 }
-   *
-   * @example
-   * // panel a minSize=40，layout 中 a=30 違規 → clamp 並重分配
-   * calculator.validateLayout({ a: 30, b: 70 }, panels)
-   * // => { a: 40, b: 60 }
-   *
-   * @example
-   * // 衝突：兩個 panel minSize=60（加總 120%）→ DOM 順序前面的優先
-   * calculator.validateLayout({ a: 50, b: 50 }, panels)
-   * // => { a: 60, b: 40 }
-   */
-  validateLayout(layout, panels) {
-    return this._applyConstraints(layout, panels)
-  }
-
-  /**
    * @description 比較兩個 layout 是否相等，使用 toFixed(3) 浮點容差。
    *
    * 比較邏輯：每個值先 toFixed(3) 再 parseFloat，然後以 === 比較。
@@ -212,35 +335,19 @@ export class LayoutCalculator {
 
   /**
    * @private
-   * @description 將數值四捨五入到 PRECISION 位小數，用於浮點容差比較。
-   *
-   * @param {number} number - 待格式化的數值
-   * @returns {number} 四捨五入後的數值
-   *
-   * @example
-   * this._formatNumber(49.9999) // => 50
-   * this._formatNumber(50.0004) // => 50
-   * this._formatNumber(50.001)  // => 50.001
-   */
-  _formatNumber(number) {
-    return parseFloat(number.toFixed(LayoutCalculator.PRECISION))
-  }
-
-  /**
-   * @private
    * @description 將 panels 依據是否有 defaultSize 分為兩組。
    * 有 defaultSize 的 panel 會透過 UnitConverter 將原始值轉為百分比。
    *
    * @param {PanelData[]} panels - panel 資料陣列
    * @param {number} availableSize - 容器可用尺寸（px），用於 px → % 轉換
-   * @returns {{ withDefault: Array<{ panel: PanelData, percent: number }>, withoutDefault: PanelData[] }}
+   * @returns {{ defaultSizePanels: Array<{ panel: PanelData, percent: number }>, nonDefaultPanelDataList: PanelData[] }}
    *
    * @example
    * // panelA.config.defaultSize = '200px', panelB.config.defaultSize = undefined
    * this._partitionByDefaultSize([panelA, panelB], 1000)
    * // => {
-   * //   withDefault: [{ panel: panelA, percent: 20 }],
-   * //   withoutDefault: [panelB]
+   * //   defaultSizePanels: [{ panel: panelA, percent: 20 }],
+   * //   nonDefaultPanelDataList: [panelB]
    * // }
    */
   _partitionByDefaultSize(panels, availableSize) {
@@ -252,121 +359,27 @@ export class LayoutCalculator {
       return { panel, percent }
     }
 
-    const [withDefaultRaw, withoutDefault] = partition(hasDefaultSize)(panels)
-    const withDefault = map(toPercentEntry)(withDefaultRaw)
+    const [withDefaultRaw, nonDefaultPanelDataList] = partition(hasDefaultSize)(panels)
+    const defaultSizePanels = map(toPercentEntry)(withDefaultRaw)
 
-    return { withDefault, withoutDefault }
+    return { defaultSizePanels, nonDefaultPanelDataList }
   }
 
-  /**
-   * @private
-   * @description 分配初始尺寸。有 defaultSize 的 panel 按指定百分比分配，
-   * 無 defaultSize 的 panel 均分剩餘空間。
-   *
-   * 回傳的 layout 加總不保證為 100%（後續由 _normalizeLayout 處理）。
-   *
-   * @param {Array<{ panel: PanelData, percent: number }>} withDefault - 有 defaultSize 的 panel（已轉為百分比）
-   * @param {PanelData[]} withoutDefault - 無 defaultSize 的 panel
-   * @returns {Layout} 未 normalize 的初始 layout
-   *
-   * @example
-   * // withDefault: [{ panel: panelA, percent: 70 }], withoutDefault: [panelB]
-   * this._allocateDefaultSizes(withDefault, withoutDefault)
-   * // => { a: 70, b: 30 }
-   *
-   * @example
-   * // 全部無 defaultSize
-   * this._allocateDefaultSizes([], [panelA, panelB])
-   * // => { a: 50, b: 50 }
-   */
-  _allocateDefaultSizes(withDefault, withoutDefault) {
-    const defaultEntries = map(({ panel, percent }) => [panel.id, percent])(withDefault)
-    const usedPercent = sum(map(({ percent }) => percent)(withDefault))
-
-    const remaining = 100 - usedPercent
-    const each = withoutDefault.length > 0 ? remaining / withoutDefault.length : 0
-    const remainingEntries = map(panel => [panel.id, each])(withoutDefault)
-
-    const result = fromPairs([...defaultEntries, ...remainingEntries])
-
-    return result
-  }
-
-  /**
-   * @private
-   * @description 將 layout 按比例縮放，使加總等於 100%。
-   * 若加總已為 100%（含浮點容差）或為 0，則原樣回傳。
-   *
-   * @param {Layout} layout - 待 normalize 的 layout
-   * @returns {Layout} 加總為 100% 的 layout
-   *
-   * @example
-   * this._normalizeLayout({ a: 30, b: 40 })
-   * // => { a: 42.857, b: 57.143 }  （按 30:40 比例 normalize）
-   *
-   * @example
-   * // 已為 100% → 原樣回傳
-   * this._normalizeLayout({ a: 60, b: 40 })
-   * // => { a: 60, b: 40 }
-   */
-  _normalizeLayout(layout) {
-    const total = values(layout).reduce((sum, v) => sum + v, 0)
-    const needsNormalize = total !== 0 && this._formatNumber(total) !== 100
-
-    const result = needsNormalize
-      ? map(v => v * (100 / total))(layout)
-      : layout
-
-    return result
-  }
-
-  /**
-   * @private
-   * @description 套用 min/max 約束並確保加總為 100%。
-   *
-   * 流程：
-   * 1. 每個 panel 先 clamp 到自身 min/max 範圍
-   * 2. 若 clamp 後加總 ≠ 100%，透過 _redistributeOverflow 重分配溢出量
-   *
-   * @param {Layout} layout - 待套用約束的 layout
-   * @param {PanelData[]} panels - panel 資料陣列，順序依 DOM 位置
-   * @returns {Layout} 符合約束且加總為 100% 的 layout
-   *
-   * @example
-   * // panel a minSize=40，layout 中 a=30 違規
-   * this._applyConstraints({ a: 30, b: 70 }, panels)
-   * // => { a: 40, b: 60 }
-   */
-  _applyConstraints(layout, panels) {
-    const clampedEntries = map(panel => [
-      panel.id,
-      this._clampValue(layout[panel.id], panel.constraints.minSize, panel.constraints.maxSize)
-    ])(panels)
-    const result = fromPairs(clampedEntries)
-
-    const overflow = sum(values(result)) - 100
-
-    const finalResult = this._formatNumber(overflow) !== 0
-      ? this._redistributeOverflow(result, panels, overflow)
-      : result
-
-    return finalResult
-  }
 
   /**
    * @private
    * @description 將 clamp 後的溢出量重分配給可調整的 panel。
-   * overflow > 0 時縮減 panel，overflow < 0 時擴增 panel。
+   * overflowSize > 0 時縮減 panel，overflow < 0 時擴增 panel。
    *
    * @param {Layout} layout - clamp 後的 layout（加總 ≠ 100%）
    * @param {PanelData[]} panels - panel 資料陣列，順序依 DOM 位置
-   * @param {number} overflow - 溢出量（正值 = 需縮減，負值 = 需擴增）
+   * @param {number} overflowSize - 溢出量（正值 = 需縮減，負值 = 需擴增）
    * @returns {Layout} 重分配後的新 layout（加總 = 100%）
    */
-  _redistributeOverflow(layout, panels, overflow) {
-    const result = overflow > 0
-      ? this._shrinkPanels(layout, panels, overflow)
-      : this._growPanels(layout, panels, -overflow)
+  _redistributeOverflow(layout, panels, overflowSize) {
+    const result = overflowSize > 0
+      ? this._shrinkPanels(layout, panels, overflowSize)
+      : this._growPanels(layout, panels, -overflowSize)
 
     return result
   }
@@ -381,17 +394,17 @@ export class LayoutCalculator {
    *
    * @param {Layout} layout - 需要縮減的 layout
    * @param {PanelData[]} panels - panel 資料陣列，順序依 DOM 位置
-   * @param {number} overflow - 需縮減的總量（正值）
+   * @param {number} overflowSize - 需縮減的總量（正值）
    * @returns {Layout} 縮減後的新 layout
    *
    * @example
-   * // panel a=60(min=40), panel b=60(min=60), overflow=20
+   * // panel a=60(min=40), panel b=60(min=60), overflowSize=20
    * this._shrinkPanels({ a: 60, b: 60 }, panels, 20)
    * // => { a: 40, b: 60 }  （a 有 20 的可縮減量，優先從後往前但 b 不可縮所以扣 a）
    */
-  _shrinkPanels(layout, panels, overflow) {
+  _shrinkPanels(layout, panels, overflowSize) {
     const result = { ...layout }
-    let remaining = overflow
+    let remaining = overflowSize
 
     for (let i = panels.length - 1; i >= 0 && this._formatNumber(remaining) !== 0; i--) {
       const panel = panels[i]
@@ -445,24 +458,6 @@ export class LayoutCalculator {
     }
 
     return result
-  }
-
-  /**
-   * @private
-   * @description 將數值限制在 [min, max] 範圍內。
-   *
-   * @param {number} value - 待限制的數值
-   * @param {number} min - 下限
-   * @param {number} max - 上限
-   * @returns {number} 限制後的數值
-   *
-   * @example
-   * this._clampValue(120, 0, 100) // => 100
-   * this._clampValue(-5, 0, 100)  // => 0
-   * this._clampValue(50, 0, 100)  // => 50
-   */
-  _clampValue(value, min, max) {
-    return Math.min(Math.max(value, min), max)
   }
 }
 
