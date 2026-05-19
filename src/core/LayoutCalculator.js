@@ -1,4 +1,4 @@
-import { keys, values, isNil, all, map, partition } from 'ramda'
+import { keys, values, isNil, all, map, partition, fromPairs, sum } from 'ramda'
 
 /**
  * @class LayoutCalculator
@@ -280,23 +280,14 @@ export class LayoutCalculator {
    * // => { a: 50, b: 50 }
    */
   _allocateDefaultSizes(withDefault, withoutDefault) {
-    const result = {}
-    let usedPercent = 0
-
-    for (const { panel, percent } of withDefault) {
-      result[panel.id] = percent
-      usedPercent += percent
-    }
+    const defaultEntries = map(({ panel, percent }) => [panel.id, percent])(withDefault)
+    const usedPercent = sum(map(({ percent }) => percent)(withDefault))
 
     const remaining = 100 - usedPercent
-    const count = withoutDefault.length
+    const each = withoutDefault.length > 0 ? remaining / withoutDefault.length : 0
+    const remainingEntries = map(panel => [panel.id, each])(withoutDefault)
 
-    if (count > 0) {
-      const each = remaining / count
-      for (const panel of withoutDefault) {
-        result[panel.id] = each
-      }
-    }
+    const result = fromPairs([...defaultEntries, ...remainingEntries])
 
     return result
   }
@@ -347,17 +338,13 @@ export class LayoutCalculator {
    * // => { a: 40, b: 60 }
    */
   _applyConstraints(layout, panels) {
-    const result = {}
+    const clampedEntries = map(panel => [
+      panel.id,
+      this._clampValue(layout[panel.id], panel.constraints.minSize, panel.constraints.maxSize)
+    ])(panels)
+    const result = fromPairs(clampedEntries)
 
-    for (const panel of panels) {
-      result[panel.id] = this._clampValue(
-        layout[panel.id],
-        panel.constraints.minSize,
-        panel.constraints.maxSize
-      )
-    }
-
-    const overflow = values(result).reduce((sum, v) => sum + v, 0) - 100
+    const overflow = sum(values(result)) - 100
 
     const finalResult = this._formatNumber(overflow) !== 0
       ? this._redistributeOverflow(result, panels, overflow)
