@@ -21,6 +21,7 @@
 - [x] **v1 TDD 開發 — Task 01 UnitConverter 完成**
 - [x] **v1 TDD 開發 — Task 02 LayoutCalculator 完成**
 - [x] **v1 TDD 開發 — Task 03 HitRegionDetector 完成**
+- [x] **v1 TDD 開發 — Task 04 CursorManager 完成**
 
 ---
 
@@ -141,7 +142,7 @@ SA 已通過完整性檢視（Spec 8 個章節逐條比對），詳見 `V1-SA.md
 | 01 | `tasks/01-UnitConverter.md` | UnitConverter | 無 | done |
 | 02 | `tasks/02-LayoutCalculator.md` | LayoutCalculator | UnitConverter | done |
 | 03 | `tasks/03-HitRegionDetector.md` | HitRegionDetector | 無 | done |
-| 04 | `tasks/04-CursorManager.md` | CursorManager | 無 | pending |
+| 04 | `tasks/04-CursorManager.md` | CursorManager | 無 | done |
 | 05 | `tasks/05-ResizableGroupManager.md` | ResizableGroupManager | 全部 | pending |
 | 06 | `tasks/06-Panel-Vue-SFC.md` | Panel (Vue SFC) | Manager | pending |
 
@@ -202,9 +203,8 @@ LayoutCalculator 的 `for` 迴圈已分三類處理：
 
 ## 下次 Session 接續點
 
-1. **開始 Task 04 — CursorManager TDD 開發**（無依賴）
-2. Task 05（ResizableGroupManager）依賴全部模組，待 Task 04 完成後開始
-3. **討論第三類迴圈的 functional 重構方向**
+1. **開始 Task 05 — ResizableGroupManager TDD 開發**（依賴全部模組，Task 01-04 已完成）
+2. **討論第三類迴圈的 functional 重構方向**
 
 ---
 

@@ -1,6 +1,6 @@
 # Task 04: CursorManager
 
-> 狀態：pending
+> 狀態：done
 > 依賴：無
 > 對應 SA 章節：Class Diagram — CursorManager、資料結構 — CursorState / ConstraintDirection、Spec §6
 
@@ -51,20 +51,20 @@
 
 ### 狀態切換與 cursor 設定
 
-- [ ] **setHover** — body.style.cursor = 'col-resize'
-- [ ] **setDrag('none')** — body.style.cursor = 'col-resize'
-- [ ] **setDrag('start')** — body.style.cursor = 'e-resize'
-- [ ] **setDrag('end')** — body.style.cursor = 'w-resize'
-- [ ] **setDisabled** — body.style.cursor = 'not-allowed'
-- [ ] **reset** — 移除 cursor 設定，回到 idle
+- [x] **setHover** — body.style.cursor = 'col-resize'
+- [x] **setDrag('none')** — body.style.cursor = 'col-resize'
+- [x] **setDrag('start')** — body.style.cursor = 'e-resize'
+- [x] **setDrag('end')** — body.style.cursor = 'w-resize'
+- [x] **setDisabled** — body.style.cursor = 'not-allowed'
+- [x] **reset** — 移除 cursor 設定，回到 idle
 
 ### user-select 控制
 
-- [ ] **drag 進入** — body.style.userSelect = 'none'（禁止文字選取）
-- [ ] **reset** — 移除 userSelect 設定
+- [x] **drag 進入** — body.style.userSelect = 'none'（禁止文字選取）
+- [x] **reset** — 移除 userSelect 設定
 
 ### 內部狀態管理
 
-- [ ] **CursorState 追蹤** — 內部正確維護 state 與 constraintDirection
-- [ ] **重複呼叫** — 同狀態重複呼叫不產生副作用
-- [ ] **樣式還原** — reset 時完整還原所有 body 樣式修改，不遺漏
+- [x] **CursorState 追蹤** — 內部正確維護 state 與 constraintDirection
+- [x] **重複呼叫** — 同狀態重複呼叫不產生副作用
+- [x] **樣式還原** — reset 時完整還原所有 body 樣式修改，不遺漏
