@@ -23,7 +23,7 @@ import { keys, values, isNil, all, map, partition, fromPairs, sum } from 'ramda'
  * // => { main: 70, side: 30 }
  */
 export class LayoutCalculator {
-  static Percision = 3
+  static Precision = 3
 
   _unitConverter = null
 
@@ -164,7 +164,7 @@ export class LayoutCalculator {
 
   /**
    * @private
-   * @description 將數值四捨五入到 Percision 位小數，用於浮點容差比較。
+   * @description 將數值四捨五入到 Precision 位小數，用於浮點容差比較。
    *
    * @param {number} number - 待格式化的數值
    * @returns {number} 四捨五入後的數值
@@ -175,7 +175,7 @@ export class LayoutCalculator {
    * this._formatNumber(50.001)  // => 50.001
    */
   _formatNumber(number) {
-    return parseFloat(number.toFixed(LayoutCalculator.Percision))
+    return parseFloat(number.toFixed(LayoutCalculator.Precision))
   }
 
   /**
