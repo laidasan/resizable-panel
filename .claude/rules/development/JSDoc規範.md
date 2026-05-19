@@ -11,6 +11,11 @@
 - `@returns` — 回傳型別與說明
 - `@example` — 使用範例，展示輸入與預期輸出
 
+## 標籤順序
+
+- Public 函式：`@param` → `@returns` → `@description` → `@example`
+- Private 函式：`@private` → `@param` → `@returns` → `@description` → `@example`
+
 ## Private 函式
 
 - 加上 `@private` 標籤
