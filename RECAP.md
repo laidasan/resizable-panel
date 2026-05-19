@@ -178,10 +178,24 @@ Task 02-04 之間無依賴，完成 01 後可平行開發。
 
 ---
 
+## 待討論議題
+
+### Functional 重構 — 第三類迴圈（`_shrinkPanels` / `_growPanels`）
+
+LayoutCalculator 的 `for` 迴圈已分三類處理：
+- **第一類（直接對應）**：已改為 `R.all`、`R.partition`、`R.map` — 完成
+- **第二類（reduce 模式）**：已改為 `R.map` + `R.fromPairs` — 完成
+- **第三類（有狀態 + 反向遍歷 + 提前終止）**：`_shrinkPanels` / `_growPanels` — 暫不調整
+
+第三類的考量：`R.reduceRight` + `{ result, remaining }` accumulator 可行，但失去提前終止能力（需靠 `R.reduced()` 或跳過），accumulator 結構較複雜，不見得比 `for` 更好讀。待後續討論。
+
+---
+
 ## 下次 Session 接續點
 
 1. **開始 Task 03 — HitRegionDetector TDD 開發**（無依賴）
 2. Task 04（CursorManager）也無依賴，可平行開發
+3. **討論第三類迴圈的 functional 重構方向**
 
 ---
 

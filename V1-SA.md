@@ -45,7 +45,7 @@ classDiagram
     class LayoutCalculator {
         -_unitConverter : UnitConverter
         +calculateInitialLayout(panels: PanelData[], availableSize: number) Layout
-        +adjustLayoutByDelta(baseLayout: Layout, delta: number, panels: PanelData[]) Layout
+        +adjustLayoutByDelta(baseLayout: Layout, delta: number, boundaryIndex: number, panels: PanelData[]) Layout
         +validateLayout(layout: Layout, panels: PanelData[]) Layout
         +layoutsEqual(a: Layout, b: Layout) boolean
     }
