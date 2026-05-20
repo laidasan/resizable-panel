@@ -294,11 +294,37 @@ ResizableGroupManager 依據是否涉及 DOM layout 拆為兩層測試：
 
 ---
 
+## validateLayout 邏輯重構決策（2026-05-20）
+
+### 問題
+
+`validateLayout`（resize / 初始化）與 `adjustLayoutByDelta`（拖曳）對 min/max 約束衝突的處理不一致，導致拖曳瞬間 layout 跳變。詳見 `issue-layout-consistency.md`。
+
+### 決策
+
+將 `_applyConstraints` 改為原版 `validatePanelGroupLayout` 的策略：
+
+1. 先 normalize（等比例縮放回 100%）
+2. clamp 每個 panel 到 min/max，累積 remainingSize（maxSize 永遠勝出）
+3. 從 index 0 開始重分配 remainingSize
+
+移除 `_shrinkPanels`、`_growPanels`、`_redistributeOverflow`（含第二輪強制突破 minSize 機制）。
+
+### 取捨
+
+- 得到：兩條路徑約束處理一致（拖曳不跳變）、resize 更平滑
+- 放棄：100% 不變式（極端約束衝突時 layout 可能 > 100%）
+- 後續待討論：panel 溢出容器的合理性與處理策略
+
+---
+
 ## 下次 Session 接續點
 
-1. **討論第三類迴圈的 functional 重構方向**
-2. **Task 06 — Panel Vue SFC 開發**
-3. **評估 preserve-pixel-size 是否納入 v1.x**（分析文件：`preserve-pixel-size-規劃.md`）
+1. **實作 validateLayout 邏輯重構**（`issue-layout-consistency.md`）
+2. **討論 panel 溢出容器（加總 > 100%）的處理策略**
+3. **討論第三類迴圈的 functional 重構方向**
+4. **Task 06 — Panel Vue SFC 開發**
+5. **評估 preserve-pixel-size 是否納入 v1.x**（分析文件：`preserve-pixel-size-規劃.md`）
 
 ---
 

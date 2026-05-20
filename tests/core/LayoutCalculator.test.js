@@ -238,7 +238,7 @@ describe('LayoutCalculator', () => {
     })
 
     describe('約束衝突', () => {
-      it('calculateInitialLayout_Should_PrioritizeByDomOrder_When_MinSizeSumExceeds100', () => {
+      it('calculateInitialLayout_Should_RespectBothMinSizes_When_MinSizeSumExceeds100', () => {
         const panels = [
           makePanelDataWithConstraints('a', { minSize: 60 }),
           makePanelDataWithConstraints('b', { minSize: 60 })
@@ -246,8 +246,8 @@ describe('LayoutCalculator', () => {
         const layout = calculator.calculateInitialLayout(panels, 1000)
 
         expect(layout.a).toBe(60)
-        expect(layout.b).toBe(40)
-        expect(layoutSum(layout)).toBe(100)
+        expect(layout.b).toBe(60)
+        expect(layoutSum(layout)).toBe(120)
       })
 
       it('calculateInitialLayout_Should_UseMinSizes_When_MinSizeSumEquals100', () => {
@@ -487,7 +487,7 @@ describe('LayoutCalculator', () => {
     })
 
     describe('衝突處理', () => {
-      it('validateLayout_Should_ReturnValidLayout_When_MinSizeSumExceeds100', () => {
+      it('validateLayout_Should_RespectBothMinSizes_When_MinSizeSumExceeds100', () => {
         const panels = [
           makePanelDataWithConstraints('a', { minSize: 60 }),
           makePanelDataWithConstraints('b', { minSize: 60 })
@@ -496,8 +496,96 @@ describe('LayoutCalculator', () => {
         const result = calculator.validateLayout(layout, panels)
 
         expect(result.a).toBe(60)
-        expect(result.b).toBe(40)
+        expect(result.b).toBe(60)
+        expect(layoutSum(result)).toBe(120)
+      })
+    })
+
+    describe('normalize', () => {
+      it('validateLayout_Should_NormalizeTo100_When_LayoutSumIsNot100', () => {
+        const panels = [
+          makePanelDataWithConstraints('a'),
+          makePanelDataWithConstraints('b')
+        ]
+        const layout = { a: 40, b: 40 }
+        const result = calculator.validateLayout(layout, panels)
+
+        expect(result.a).toBe(50)
+        expect(result.b).toBe(50)
         expect(layoutSum(result)).toBe(100)
+      })
+    })
+
+    describe('重分配方向', () => {
+      it('validateLayout_Should_RedistributeFromIndex0_When_ClampProducesPositiveRemaining', () => {
+        const panels = [
+          makePanelDataWithConstraints('a', { maxSize: 35 }),
+          makePanelDataWithConstraints('b', { minSize: 10, maxSize: 60 }),
+          makePanelDataWithConstraints('c', { minSize: 10, maxSize: 50 })
+        ]
+        const layout = { a: 50, b: 30, c: 20 }
+        const result = calculator.validateLayout(layout, panels)
+
+        expect(result.a).toBe(35)
+        expect(result.b).toBe(45)
+        expect(result.c).toBe(20)
+        expect(layoutSum(result)).toBe(100)
+      })
+
+      it('validateLayout_Should_RedistributeFromIndex0_When_ClampProducesNegativeRemaining', () => {
+        const panels = [
+          makePanelDataWithConstraints('a', { minSize: 40 }),
+          makePanelDataWithConstraints('b', { minSize: 40 }),
+          makePanelDataWithConstraints('c')
+        ]
+        const layout = { a: 10, b: 10, c: 80 }
+        const result = calculator.validateLayout(layout, panels)
+
+        expect(result.a).toBe(40)
+        expect(result.b).toBe(40)
+        expect(result.c).toBe(20)
+        expect(layoutSum(result)).toBe(100)
+      })
+    })
+
+    describe('minSize > maxSize 衝突', () => {
+      it('validateLayout_Should_LetMaxSizeWin_When_MinSizeExceedsMaxSize', () => {
+        const panels = [
+          makePanelDataWithConstraints('a', { minSize: 80, maxSize: 60 }),
+          makePanelDataWithConstraints('b')
+        ]
+        const layout = { a: 50, b: 50 }
+        const result = calculator.validateLayout(layout, panels)
+
+        expect(result.a).toBe(60)
+      })
+    })
+
+    describe('加總 ≠ 100% 的極端情境', () => {
+      it('validateLayout_Should_AllowSumOver100_When_ConstraintsCannotBeSatisfied', () => {
+        const panels = [
+          makePanelDataWithConstraints('a', { minSize: 60 }),
+          makePanelDataWithConstraints('b', { minSize: 60 })
+        ]
+        const layout = { a: 60, b: 60 }
+        const result = calculator.validateLayout(layout, panels)
+
+        expect(result.a).toBe(60)
+        expect(result.b).toBe(60)
+        expect(layoutSum(result)).toBe(120)
+      })
+
+      it('validateLayout_Should_AllowSumUnder100_When_MaxSizesSumBelow100', () => {
+        const panels = [
+          makePanelDataWithConstraints('a', { maxSize: 40 }),
+          makePanelDataWithConstraints('b', { maxSize: 40 })
+        ]
+        const layout = { a: 50, b: 50 }
+        const result = calculator.validateLayout(layout, panels)
+
+        expect(result.a).toBe(40)
+        expect(result.b).toBe(40)
+        expect(layoutSum(result)).toBe(80)
       })
     })
   })

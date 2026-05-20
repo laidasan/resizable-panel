@@ -4,8 +4,8 @@ import { keys, values, isNil, all, map, partition, fromPairs, sum } from 'ramda'
  * @class LayoutCalculator
  * @classdesc Layout 數學計算模組。負責初始 layout 分配、拖曳 delta 調整、約束驗證、layout 相等比較。
  *
- * 約束衝突解決策略：按 DOM 順序（panels 陣列順序）優先滿足前面的 panel，
- * 後面的 panel 承擔剩餘空間，即使無法滿足自身約束。
+ * 約束衝突解決策略：每個 panel 嚴格 respect min/max 約束（minSize > maxSize 時 maxSize 勝出），
+ * clamp 後剩餘空間從 DOM 順序第一個 panel 開始重分配。極端約束衝突時加總可能 ≠ 100%。
  *
  * 浮點容差策略：以 toFixed(3) 四捨五入後比較，避免計算過程中的微小誤差導致誤判。
  *
@@ -180,15 +180,38 @@ export class LayoutCalculator {
 
   /**
    * @private
-   * @description 套用 min/max 約束並確保加總為 100%。
+   * @param {number} size - 待驗證的尺寸
+   * @param {PanelConstraints} constraints - panel 約束
+   * @returns {number} 驗證後的尺寸
+   * @description 單一 panel 的約束驗證。minSize > maxSize 時 maxSize 勝出。
+   *
+   * @example
+   * this._validatePanelSize(50, { minSize: 20, maxSize: 80 }) // => 50
+   * this._validatePanelSize(10, { minSize: 20, maxSize: 80 }) // => 20
+   * this._validatePanelSize(90, { minSize: 20, maxSize: 80 }) // => 80
+   * this._validatePanelSize(50, { minSize: 80, maxSize: 60 }) // => 60（maxSize 勝出）
+   */
+  _validatePanelSize(size, constraints) {
+    const clampedToMin = Math.max(size, constraints.minSize)
+    const result = Math.min(clampedToMin, constraints.maxSize)
+
+    return result
+  }
+
+  /**
+   * @private
+   * @description 套用 min/max 約束。
    *
    * 流程：
-   * 1. 每個 panel 先 clamp 到自身 min/max 範圍
-   * 2. 若 clamp 後加總 ≠ 100%，透過 _redistributeOverflow 重分配溢出量
+   * 1. 加總 ≠ 100% 時，先等比例 normalize 回 100%
+   * 2. 每個 panel 依序 clamp 到 min/max，累積 remainingSize
+   * 3. 從 index 0 開始，將 remainingSize 重分配給可接受的 panel
+   *
+   * 極端約束衝突時加總可能 ≠ 100%（SPEC §3.2 修訂版）。
    *
    * @param {Layout} layout - 待套用約束的 layout
    * @param {PanelData[]} panels - panel 資料陣列，順序依 DOM 位置
-   * @returns {Layout} 符合約束且加總為 100% 的 layout
+   * @returns {Layout} 套用約束後的 layout
    *
    * @example
    * // panel a minSize=40，layout 中 a=30 違規
@@ -196,17 +219,55 @@ export class LayoutCalculator {
    * // => { a: 40, b: 60 }
    */
   _applyConstraints(layout, panels) {
-    const clampedEntries = map(panel => [
-      panel.id,
-      this._clampValue(layout[panel.id], panel.constraints.minSize, panel.constraints.maxSize)
-    ])(panels)
-    const result = fromPairs(clampedEntries)
+    const normalizedLayout = this._normalizeLayout(layout)
+    const result = { ...normalizedLayout }
+    let remainingSize = 0
 
-    const overflowSize = sum(values(result)) - 100
+    for (let index = 0; index < panels.length; index++) {
+      const panel = panels[index]
+      const unsafeSize = result[panel.id]
+      const safeSize = this._validatePanelSize(unsafeSize, panel.constraints)
 
-    return this._formatNumber(overflowSize) !== 0
-      ? this._redistributeOverflow(result, panels, overflowSize)
-      : result
+      if (unsafeSize !== safeSize) {
+        remainingSize += unsafeSize - safeSize
+        result[panel.id] = safeSize
+      }
+    }
+
+    if (!this._isZero(remainingSize)) {
+      for (let index = 0; index < panels.length; index++) {
+        const panel = panels[index]
+        const prevSize = result[panel.id]
+        const unsafeSize = prevSize + remainingSize
+        const safeSize = this._validatePanelSize(unsafeSize, panel.constraints)
+
+        if (prevSize !== safeSize) {
+          remainingSize -= safeSize - prevSize
+          result[panel.id] = safeSize
+
+          if (this._isZero(remainingSize)) {
+            break
+          }
+        }
+      }
+    }
+
+    return result
+  }
+
+  /**
+   * @private
+   * @param {number} value - 待檢查的數值
+   * @returns {boolean} 是否為零（含浮點容差）
+   * @description 使用 _formatNumber 判斷數值是否為零
+   *
+   * @example
+   * this._isZero(0) // => true
+   * this._isZero(0.00001) // => true
+   * this._isZero(0.01) // => false
+   */
+  _isZero(value) {
+    return this._formatNumber(value) === 0
   }
 
   /**
@@ -366,99 +427,6 @@ export class LayoutCalculator {
   }
 
 
-  /**
-   * @private
-   * @description 將 clamp 後的溢出量重分配給可調整的 panel。
-   * overflowSize > 0 時縮減 panel，overflow < 0 時擴增 panel。
-   *
-   * @param {Layout} layout - clamp 後的 layout（加總 ≠ 100%）
-   * @param {PanelData[]} panels - panel 資料陣列，順序依 DOM 位置
-   * @param {number} overflowSize - 溢出量（正值 = 需縮減，負值 = 需擴增）
-   * @returns {Layout} 重分配後的新 layout（加總 = 100%）
-   */
-  _redistributeOverflow(layout, panels, overflowSize) {
-    const result = overflowSize > 0
-      ? this._shrinkPanels(layout, panels, overflowSize)
-      : this._growPanels(layout, panels, -overflowSize)
-
-    return result
-  }
-
-  /**
-   * @private
-   * @description 從後往前縮減 panel 尺寸以消化溢出量。
-   *
-   * 兩輪處理：
-   * 1. 第一輪：只扣除各 panel 在 minSize 以上的可縮減量（respect 約束）
-   * 2. 第二輪：若仍有溢出，強制扣除（突破 minSize，DOM 順序前面的優先保留）
-   *
-   * @param {Layout} layout - 需要縮減的 layout
-   * @param {PanelData[]} panels - panel 資料陣列，順序依 DOM 位置
-   * @param {number} overflowSize - 需縮減的總量（正值）
-   * @returns {Layout} 縮減後的新 layout
-   *
-   * @example
-   * // panel a=60(min=40), panel b=60(min=60), overflowSize=20
-   * this._shrinkPanels({ a: 60, b: 60 }, panels, 20)
-   * // => { a: 40, b: 60 }  （a 有 20 的可縮減量，優先從後往前但 b 不可縮所以扣 a）
-   */
-  _shrinkPanels(layout, panels, overflowSize) {
-    const result = { ...layout }
-    let remaining = overflowSize
-
-    for (let i = panels.length - 1; i >= 0 && this._formatNumber(remaining) !== 0; i--) {
-      const panel = panels[i]
-      const currentSize = result[panel.id]
-      const canShrink = currentSize - panel.constraints.minSize
-      const shrink = Math.min(remaining, canShrink)
-
-      result[panel.id] = currentSize - shrink
-      remaining -= shrink
-    }
-
-    for (let i = panels.length - 1; i >= 0 && this._formatNumber(remaining) !== 0; i--) {
-      const panel = panels[i]
-      const currentSize = result[panel.id]
-      const shrink = Math.min(remaining, currentSize)
-
-      result[panel.id] = currentSize - shrink
-      remaining -= shrink
-    }
-
-    return result
-  }
-
-  /**
-   * @private
-   * @description 從後往前擴增 panel 尺寸以填補不足量。
-   * 每個 panel 最多擴增到自身 maxSize。
-   *
-   * @param {Layout} layout - 需要擴增的 layout
-   * @param {PanelData[]} panels - panel 資料陣列，順序依 DOM 位置
-   * @param {number} deficit - 需擴增的總量（正值）
-   * @returns {Layout} 擴增後的新 layout
-   *
-   * @example
-   * // panel a=30(max=100), panel b=30(max=50), deficit=40
-   * this._growPanels({ a: 30, b: 30 }, panels, 40)
-   * // => { a: 50, b: 50 }  （b 先吸收 20 到 max，a 再吸收 20）
-   */
-  _growPanels(layout, panels, deficit) {
-    const result = { ...layout }
-    let remaining = deficit
-
-    for (let i = panels.length - 1; i >= 0 && this._formatNumber(remaining) !== 0; i--) {
-      const panel = panels[i]
-      const currentSize = result[panel.id]
-      const canGrow = panel.constraints.maxSize - currentSize
-      const grow = Math.min(remaining, canGrow)
-
-      result[panel.id] = currentSize + grow
-      remaining -= grow
-    }
-
-    return result
-  }
 }
 
 
