@@ -270,21 +270,18 @@ export class LayoutCalculator {
     const result = { ...layout }
     let remaining = remainingSize
 
-    for (let index = 0; index < panels.length; index++) {
-      if (this._isZero(remaining)) {
-        break
+    panels.forEach(panel => {
+      if(!this._isZero(remaining)) {
+        const prevSize = result[panel.id]
+        const unsafeSize = prevSize + remaining
+        const safeSize = this._validatePanelSize(unsafeSize, panel.constraints)
+  
+        if (prevSize !== safeSize) {
+          remaining -= safeSize - prevSize
+          result[panel.id] = safeSize
+        }
       }
-
-      const panel = panels[index]
-      const prevSize = result[panel.id]
-      const unsafeSize = prevSize + remaining
-      const safeSize = this._validatePanelSize(unsafeSize, panel.constraints)
-
-      if (prevSize !== safeSize) {
-        remaining -= safeSize - prevSize
-        result[panel.id] = safeSize
-      }
-    }
+    })
 
     return result
   }
