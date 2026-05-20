@@ -213,35 +213,76 @@ export class LayoutCalculator {
    */
   _applyConstraints(layout, panels) {
     const normalizedLayout = this._normalizeLayout(layout)
-    const result = { ...normalizedLayout }
-    let remainingSize = 0
+    const { clampedLayout, remainingSize } = this._clampAllPanels(normalizedLayout, panels)
+
+    return this._isZero(remainingSize)
+      ? clampedLayout
+      : this._redistributeRemaining(clampedLayout, remainingSize, panels)
+  }
+
+  /**
+   * @private
+   * @param {Layout} layout - 待 clamp 的 layout
+   * @param {PanelData[]} panels - panel 資料陣列，順序依 DOM 位置
+   * @returns {{ clampedLayout: Layout, remainingSize: number }} clamp 後的 layout 與剩餘空間
+   * @description 將每個 panel 的尺寸 clamp 到 min/max 約束內，累積 clamp 產生的剩餘空間。
+   *
+   * remainingSize 語意：
+   * - 正值：clamp 砍掉的量 > 撐起的量，多出空間需要塞回去
+   * - 負值：clamp 撐起的量 > 砍掉的量，空間不足需要扣回來
+   * - 零：剛好平衡
+   *
+   * @example
+   * // panel a minSize=40，layout 中 a=30
+   * this._clampAllPanels({ a: 30, b: 70 }, panels)
+   * // => { clampedLayout: { a: 40, b: 70 }, remainingSize: -10 }
+   */
+  _clampAllPanels(layout, panels) {
+    const result = panels.reduce((acc, panel) => {
+      const unsafeSize = layout[panel.id]
+      const safeSize = this._validatePanelSize(unsafeSize, panel.constraints)
+      const sizeDiff = unsafeSize - safeSize
+
+      return {
+        clampedLayout: { ...acc.clampedLayout, [panel.id]: safeSize },
+        remainingSize: acc.remainingSize + sizeDiff
+      }
+    }, { clampedLayout: {}, remainingSize: 0 })
+
+    return result
+  }
+
+  /**
+   * @private
+   * @param {Layout} layout - clamp 後的 layout
+   * @param {number} remainingSize - 待重分配的剩餘空間
+   * @param {PanelData[]} panels - panel 資料陣列，順序依 DOM 位置
+   * @returns {Layout} 重分配後的 layout
+   * @description 從 index 0 開始，將 remainingSize 分配給可接受的 panel（受 min/max 約束）。
+   * 所有 panel 都無法吸收時，remainingSize 殘留，加總 ≠ 100%。
+   *
+   * @example
+   * // remainingSize=10，panel b 可吸收
+   * this._redistributeRemaining({ a: 50, b: 40 }, 10, panels)
+   * // => { a: 50, b: 50 }
+   */
+  _redistributeRemaining(layout, remainingSize, panels) {
+    const result = { ...layout }
+    let remaining = remainingSize
 
     for (let index = 0; index < panels.length; index++) {
+      if (this._isZero(remaining)) {
+        break
+      }
+
       const panel = panels[index]
-      const unsafeSize = result[panel.id]
+      const prevSize = result[panel.id]
+      const unsafeSize = prevSize + remaining
       const safeSize = this._validatePanelSize(unsafeSize, panel.constraints)
 
-      if (unsafeSize !== safeSize) {
-        remainingSize += unsafeSize - safeSize
+      if (prevSize !== safeSize) {
+        remaining -= safeSize - prevSize
         result[panel.id] = safeSize
-      }
-    }
-
-    if (!this._isZero(remainingSize)) {
-      for (let index = 0; index < panels.length; index++) {
-        const panel = panels[index]
-        const prevSize = result[panel.id]
-        const unsafeSize = prevSize + remainingSize
-        const safeSize = this._validatePanelSize(unsafeSize, panel.constraints)
-
-        if (prevSize !== safeSize) {
-          remainingSize -= safeSize - prevSize
-          result[panel.id] = safeSize
-
-          if (this._isZero(remainingSize)) {
-            break
-          }
-        }
       }
     }
 
