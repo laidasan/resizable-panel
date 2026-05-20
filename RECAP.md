@@ -1,6 +1,6 @@
 # Session Recap
 
-> 更新日期：2026-05-20（Session 3）
+> 更新日期：2026-05-20（Session 4）
 
 ---
 
@@ -26,6 +26,10 @@
 - [x] **v1 TDD 開發 — Task 05 ResizableGroupManager Phase 2-4（activate/deactivate、拖曳三階段、ResizeObserver）完成**
 - [x] **Playground 手動測試環境建立**（`playground/` 目錄，Vite dev server）
 - [x] **ResizableGroupManager code check 修正**（5 項違規全部修正完成）
+- [x] **v1 TDD 開發 — Task 06-1 validateLayout 重構**（實作 + 單元測試驗證通過）
+- [x] **CSS 策略決策**：採用原版 flex-grow 方式（flex-basis:0 + flex-grow:N）
+- [x] **Playground 新增 Flex 版 Demo**（Group 1F-6F + Group 7/7F 約束衝突對照）
+- [x] **Group 1 流程規格文件**（`flowSpec.md`：activate → 拖曳 → resize 完整計算追蹤）
 
 ---
 
@@ -148,6 +152,7 @@ SA 已通過完整性檢視（Spec 8 個章節逐條比對），詳見 `V1-SA.md
 | 03 | `tasks/03-HitRegionDetector.md` | HitRegionDetector | 無 | done |
 | 04 | `tasks/04-CursorManager.md` | CursorManager | 無 | done |
 | 05 | `tasks/05-ResizableGroupManager.md` | ResizableGroupManager | 全部 | done |
+| 06-1 | `tasks/06-1-重構-validateLayout-logic.md` | LayoutCalculator 重構 | 02 | done (verified) |
 | 06 | `tasks/06-Panel-Vue-SFC.md` | Panel (Vue SFC) | Manager | pending |
 
 Task 02-04 之間無依賴，完成 01 後可平行開發。
@@ -314,17 +319,81 @@ ResizableGroupManager 依據是否涉及 DOM layout 拆為兩層測試：
 
 - 得到：兩條路徑約束處理一致（拖曳不跳變）、resize 更平滑
 - 放棄：100% 不變式（極端約束衝突時 layout 可能 > 100%）
-- 後續待討論：panel 溢出容器的合理性與處理策略
+- 溢出容器：實測 flex 容器下不會溢出，透過 CSS 處理，不在邏輯層處理
+
+### 驗證結果（Session 4）
+
+- 單元測試：46 tests passed
+- 殘留引用檢查：`_shrinkPanels` / `_growPanels` / `_redistributeOverflow` 無殘留
+- Playground 手動測試（拖曳跳變）：通過
+
+---
+
+## CSS 策略決策（2026-05-20）
+
+### 原版 react-resizable-panels 的方式
+
+Panel 尺寸不用 `width`，而是：
+- Panel：`flex-basis: 0` + `flex-grow: <layout 百分比>` + `flex-shrink: 1`
+- Group 容器：`display: flex` + `flex-direction: row` + `flex-wrap: nowrap`
+- Separator：`flex-basis: auto` + `flex-grow: 0` + `flex-shrink: 0`
+
+### 決策
+
+採用原版 flex-grow 方式。
+
+### 優勢
+
+- `flex-grow` 是比例分配，即使未來加 Separator 佔固定寬度，剩餘空間仍按正確比例分
+- 約束衝突（layout 加總 > 100%）時，flex-grow 自動按比例 normalize，視覺上不溢出
+- 計算邏輯不受影響，只有最後 CSS 套用方式不同
+
+### Playground Demo
+
+新增 Group 1F-6F（flex 版本，與 width 版本配對對照）及 Group 7/7F（約束衝突專用）。
+Group 7 配置：`{ a: minSize 60%, b: minSize 60% }`，activate 即產生 layout 加總 120%。
+
+---
+
+## Group 1 流程規格（2026-05-20）
+
+以 Group 1 配置為情境，完整追蹤 activate → 拖曳 → resize 三階段的計算流程，
+含具體數值、每一步的 _applyConstraints / adjustLayoutByDelta 內部計算過程。
+詳見 `flowSpec.md`。
+
+---
+
+## 已結案議題（Session 4）
+
+| 議題 | 結論 |
+|------|------|
+| panel 溢出容器（加總 > 100%） | 實測 width 版本在 flex 容器下也不會溢出。溢出問題透過 CSS 處理即可，不在計算邏輯中額外處理 |
+| 第三類迴圈 functional 重構 | `_shrinkPanels` / `_growPanels` 已在 Task 06-1 移除，議題不再存在，結案 |
+| Playground 手動測試（拖曳跳變） | Group 3/6 確認通過，Task 06-1 驗收完成 |
+| flex-grow Demo 行為確認 | width 版本與 flex 版本行為對照確認完成 |
 
 ---
 
 ## 下次 Session 接續點
 
-1. **實作 validateLayout 邏輯重構**（`issue-layout-consistency.md`）
-2. **討論 panel 溢出容器（加總 > 100%）的處理策略**
-3. **討論第三類迴圈的 functional 重構方向**
-4. **Task 06 — Panel Vue SFC 開發**
-5. **評估 preserve-pixel-size 是否納入 v1.x**（分析文件：`preserve-pixel-size-規劃.md`）
+1. **Task 06 — Panel Vue SFC 開發**
+2. **評估 preserve-pixel-size 是否納入 v1.x**（分析文件：`preserve-pixel-size-規劃.md`）
+
+---
+
+## 關鍵文件索引（更新）
+
+| 文件 | 用途 |
+|------|------|
+| `PROJECT-CONTEXT.md` | 專案目標、決策記錄、版本規劃、進度 |
+| `FEATURE-ANALYSIS-react-resizable-panels.md` | react-resizable-panels 72 項功能分析 |
+| `V1-SPEC.md` | v1 功能規格（需求面，8 個章節） |
+| `V1-SA.md` | v1 系統分析 / 架構設計（完成） |
+| `ADR-ResizeObserver-觀察範圍.md` | 架構決策：ResizeObserver 只觀察 Group 容器 |
+| `issue-layout-consistency.md` | validateLayout 與 adjustLayoutByDelta 不一致問題分析與決策 |
+| `flowSpec.md` | Group 1 完整流程規格（activate / 拖曳 / resize 計算追蹤） |
+| `.claude/rules/development/TDD開發原則.md` | TDD 開發流程規範 |
+| `.claude/rules/development/程式開發原則.md` | SOLID、OOP、Facade 原則 |
 
 ---
 

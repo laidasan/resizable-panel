@@ -1,6 +1,6 @@
 # Task 06-1: 重構 validateLayout 邏輯
 
-> 狀態：done
+> 狀態：verified
 > 依賴：無（在既有 LayoutCalculator 上修改）
 > 決策文件：`issue-layout-consistency.md`
 > SPEC 修訂：`V1-SPEC.md` §3.2（修訂版）、§3.4（修訂版）
