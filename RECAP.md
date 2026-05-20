@@ -1,6 +1,6 @@
 # Session Recap
 
-> 更新日期：2026-05-20（Session 4）
+> 更新日期：2026-05-20（Session 6）
 
 ---
 
@@ -32,6 +32,7 @@
 - [x] **Group 1 流程規格文件**（`flowSpec.md`：activate → 拖曳 → resize 完整計算追蹤）
 - [x] **LayoutCalculator `_applyConstraints` 語意化重構**（拆為 `_clampAllPanels` reduce + `_redistributeRemaining` forEach pipeline）
 - [x] **Playground 新增 Group 8 Demo**（Panel 動態顯示/隱藏：deactivate → register/unRegister → activate 循環）
+- [x] **v1 開發 — Task 06 Panel Vue SFC 完成**（元件實作 + Playground 串接驗證通過）
 
 ---
 
@@ -155,7 +156,7 @@ SA 已通過完整性檢視（Spec 8 個章節逐條比對），詳見 `V1-SA.md
 | 04 | `tasks/04-CursorManager.md` | CursorManager | 無 | done |
 | 05 | `tasks/05-ResizableGroupManager.md` | ResizableGroupManager | 全部 | done |
 | 06-1 | `tasks/06-1-重構-validateLayout-logic.md` | LayoutCalculator 重構 | 02 | done (verified) |
-| 06 | `tasks/06-Panel-Vue-SFC.md` | Panel (Vue SFC) | Manager | pending |
+| 06 | `tasks/06-Panel-Vue-SFC.md` | Panel (Vue SFC) | Manager | done |
 
 Task 02-04 之間無依賴，完成 01 後可平行開發。
 
@@ -376,9 +377,83 @@ Group 7 配置：`{ a: minSize 60%, b: minSize 60% }`，activate 即產生 layou
 
 ---
 
-## 下次 Session 接續點
+## Task 06 — Panel Vue SFC（Session 5）
 
-1. **Task 06 — Panel Vue SFC 開發**
+### 設計決策
+
+- **Panel 為純 presentational component** — 只接收 `size` prop，不自行向 Manager 註冊 callback
+- **資料驅動橋接點在父元件** — 父元件（如 PageLayout.vue）在 `data()` 建立 `panelLayout`，Manager 的 LayoutChange callback 更新此 `data()`，Vue reactivity 接手驅動畫面
+- **layoutResult 不直接存入 data** — `layoutResult` 包含 DOM element 引用，Vue 2 會 deep observe 造成效能問題，callback 中只提取 size 數值
+
+### 元件結構
+
+| 項目 | 說明 |
+|------|------|
+| props | `panelId` (String, required)、`size` (Number, default 0) |
+| computed | `outerStyle` — `{ flexBasis: 0, flexGrow: size, flexShrink: 1 }` |
+| template | 外層 div（`:style="outerStyle"`）+ 內層 div（`.resizable-panel__content`，overflow: auto）+ `<slot/>` |
+
+### 新增檔案
+
+- `src/components/Panel.vue` — Panel SFC 元件
+- `playground/PageLayout.vue` — Manager + Panel SFC 串接驗證範例
+
+### Playground 驗證
+
+PageLayout.vue 展示完整串接流程：mounted 建立 Manager → registerPanel → on(LayoutChange) 更新 data → activate → Panel 透過 prop 接收 size → flex CSS 渲染。Playground 驗證通過。
+
+---
+
+## Session 6 — README 與開發者文件（進行中）
+
+### 目標
+
+撰寫 README.md 與 `docs/` 開發者文件，讓使用者和開發者都能快速上手。
+
+### README.md 結構
+
+```
+README.md
+├── 簡介 + 功能摘要
+├── Installation
+├── Quick Start（Vue 使用範例，精簡自 PageLayout.vue）
+├── Architecture Overview
+│   ├── 精簡 ClassDiagram（class 名稱 + 關係，不展開屬性方法）
+│   └── 各 class 一句話摘要 → 連結 docs/<ClassName>.md
+└── Core Flows（泛化流程：activate / 拖曳三階段 / resize）
+    └── 連結 docs/flows/flowSpec.md（Group 1 具體數值走讀）
+```
+
+### docs/ 目錄結構
+
+```
+docs/
+├── UnitConverter.md
+├── LayoutCalculator.md
+├── HitRegionDetector.md
+├── CursorManager.md
+├── ResizableGroupManager.md
+└── flows/
+    └── flowSpec.md（從根目錄搬入）
+```
+
+### 決策
+
+- ClassDiagram 精簡版放 README（class 名稱 + 關係），完整版放各 class 的 docs 文件
+- Core Flows 放泛化流程說明，flowSpec.md 作為帶具體數值的完整走讀範例連結
+- `docs/` 不加 dot prefix，符合開源慣例
+
+### 進度
+
+- [x] README.md
+- [x] docs/ 各 class 文件（ResizableGroupManager, LayoutCalculator, UnitConverter, HitRegionDetector, CursorManager）
+- [x] docs/flows/flowSpec.md（從根目錄複製到 docs/flows/，根目錄原檔保留待確認刪除）
+
+---
+
+## 待辦（非本次 Session）
+
+1. **Panel Vue SFC 單元測試**（待安裝 `@vue/test-utils@1` 後補上）
 2. **評估 preserve-pixel-size 是否納入 v1.x**（分析文件：`preserve-pixel-size-規劃.md`）
 
 ---
@@ -393,9 +468,10 @@ Group 7 配置：`{ a: minSize 60%, b: minSize 60% }`，activate 即產生 layou
 | `V1-SA.md` | v1 系統分析 / 架構設計（完成） |
 | `ADR-ResizeObserver-觀察範圍.md` | 架構決策：ResizeObserver 只觀察 Group 容器 |
 | `issue-layout-consistency.md` | validateLayout 與 adjustLayoutByDelta 不一致問題分析與決策 |
-| `flowSpec.md` | Group 1 完整流程規格（activate / 拖曳 / resize 計算追蹤） |
+| `docs/flows/flowSpec.md` | Group 1 完整流程規格（activate / 拖曳 / resize 計算追蹤） |
 | `.claude/rules/development/TDD開發原則.md` | TDD 開發流程規範 |
 | `.claude/rules/development/程式開發原則.md` | SOLID、OOP、Facade 原則 |
+| `playground/PageLayout.vue` | Manager + Panel SFC 串接驗證範例 |
 
 ---
 
