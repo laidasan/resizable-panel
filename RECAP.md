@@ -30,6 +30,8 @@
 - [x] **CSS 策略決策**：採用原版 flex-grow 方式（flex-basis:0 + flex-grow:N）
 - [x] **Playground 新增 Flex 版 Demo**（Group 1F-6F + Group 7/7F 約束衝突對照）
 - [x] **Group 1 流程規格文件**（`flowSpec.md`：activate → 拖曳 → resize 完整計算追蹤）
+- [x] **LayoutCalculator `_applyConstraints` 語意化重構**（拆為 `_clampAllPanels` reduce + `_redistributeRemaining` forEach pipeline）
+- [x] **Playground 新增 Group 8 Demo**（Panel 動態顯示/隱藏：deactivate → register/unRegister → activate 循環）
 
 ---
 
