@@ -214,7 +214,7 @@ Constraint direction：`leftAtMin=true` → `ConstraintDirection.Start`（cursor
 _endDrag():
   resetDragState()
   cursorManager.reset()
-  emit(LayoutChanged, layoutResult)
+  emit(LayoutChangeEnd, layoutResult)
 ```
 
 ### 2-6. 拖曳摘要

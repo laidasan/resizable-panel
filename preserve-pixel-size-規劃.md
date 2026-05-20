@@ -82,7 +82,7 @@ resize → 重算 constraints → preserveFixedPanelSizes → validateLayout
 
 | 檔案 | 異動 |
 |------|------|
-| `ResizableGroupManager.js` | 新增 `_groupSize` 欄位，`activate` 時記錄初始值，`_handleResize` 內呼叫 LayoutCalculator 的新方法 |
+| `ResizablePanelManager.js` | 新增 `_groupSize` 欄位，`activate` 時記錄初始值，`_handleResize` 內呼叫 LayoutCalculator 的新方法 |
 | `LayoutCalculator.js` | 新增 `preservePixelSizes(prevLayout, prevGroupSize, nextGroupSize, panels)` |
 | `PanelConfig` typedef | 新增可選 `groupResizeBehavior`（`'preserve-pixel-size'` / `'preserve-relative-size'`），預設 `preserve-relative-size` |
 | 測試 | `LayoutCalculator.test.js` 新增 preservePixelSizes 測試案例 |

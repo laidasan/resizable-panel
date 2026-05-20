@@ -32,7 +32,7 @@
 
 已有的 `sidePanelDemo`（位於 `/tutorial/resizable-panels-tutorial/sidePanelDemo/`）展示了核心邏輯與 Vue 元件分離的做法：
 
-- `ResizableGroupManager.js` — 純 JS class，包含所有 resize 邏輯
+- `ResizablePanelManager.js` — 純 JS class，包含所有 resize 邏輯
 - `Group.vue` — 薄元件，new Manager → provide context → lifecycle 橋接
 - `Panel.vue` — 薄元件，inject context → computed style → 註冊/反註冊
 
@@ -79,7 +79,7 @@
 | 指標適應 | coarse/fine 命中區域自適應 | 18 |
 | 游標回饋 | hover cursor + 拖曳全域 cursor + userSelect | 19, 20, 21 |
 | 容器 Resize | ResizeObserver + preserve-relative-size + 約束修正 | 40, 41, 43 |
-| 事件回調 | onLayoutChange（每幀）/ onLayoutChanged（結束） | 70, 71 |
+| 事件回調 | onLayoutChange（每幀）/ onLayoutChangeEnd（結束） | 70, 71 |
 
 **刻意排除：**
 - Separator 元件（v2）

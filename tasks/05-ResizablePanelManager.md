@@ -1,8 +1,8 @@
-# Task 05: ResizableGroupManager
+# Task 05: ResizablePanelManager
 
 > 狀態：pending
 > 依賴：Task 01 — UnitConverter、Task 02 — LayoutCalculator、Task 03 — HitRegionDetector、Task 04 — CursorManager
-> 對應 SA 章節：Class Diagram — ResizableGroupManager、Public API、互動流程、狀態通知機制
+> 對應 SA 章節：Class Diagram — ResizablePanelManager、Public API、互動流程、狀態通知機制
 
 ---
 
@@ -37,7 +37,7 @@ Orchestrator class，協調 LayoutCalculator、HitRegionDetector、CursorManager
 
 // Event 類型
 Event.LayoutChange  — 拖曳中每幀
-Event.LayoutChanged — 拖曳結束
+Event.LayoutChangeEnd — 拖曳結束
 ```
 
 ---
@@ -99,7 +99,7 @@ Event.LayoutChanged — 拖曳結束
 
 - [ ] **重置 DragState** — 所有欄位歸零
 - [ ] **CursorManager.reset()** — 還原游標
-- [ ] **觸發 LayoutChanged** — 傳送最終 LayoutResult
+- [ ] **觸發 LayoutChangeEnd** — 傳送最終 LayoutResult
 
 ### ResizeObserver
 

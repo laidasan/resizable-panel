@@ -32,7 +32,7 @@ npm install vue-resizable-panel
 </template>
 
 <script>
-import { ResizableGroupManager } from 'vue-resizable-panel/src/core/ResizableGroupManager.js'
+import { ResizablePanelManager } from 'vue-resizable-panel/src/core/ResizablePanelManager.js'
 import Panel from 'vue-resizable-panel/src/components/Panel.vue'
 
 export default {
@@ -49,7 +49,7 @@ export default {
   },
 
   mounted() {
-    this._manager = new ResizableGroupManager({
+    this._manager = new ResizablePanelManager({
       groupConfig: {
         element: this.$refs.panelGroup,
         disabled: false,
@@ -62,11 +62,9 @@ export default {
     })
 
     this._manager.on(this._manager.Event.LayoutChange, (layoutResult) => {
-      const layout = {}
-      for (const [id, { size }] of Object.entries(layoutResult)) {
-        layout[id] = size
-      }
-      this.panelLayout = layout
+      this.panelLayout = Object.fromEntries(
+        Object.entries(layoutResult).map(([id, { size }]) => [id, size])
+      )
     })
 
     this._manager.activate()
@@ -83,8 +81,6 @@ export default {
 <style>
 .panel-group {
   display: flex;
-  height: 300px;
-  overflow: hidden;
 }
 </style>
 ```
@@ -99,7 +95,7 @@ Group 容器需設定 `display: flex`。Panel 透過 `flex-basis: 0` + `flex-gro
 classDiagram
     direction TB
 
-    class ResizableGroupManager {
+    class ResizablePanelManager {
         <<orchestrator>>
     }
     class LayoutCalculator
@@ -110,10 +106,10 @@ classDiagram
         <<Vue SFC>>
     }
 
-    ResizableGroupManager *-- LayoutCalculator : 組合
-    ResizableGroupManager *-- HitRegionDetector : 組合
-    ResizableGroupManager *-- CursorManager : 組合
-    Panel --o ResizableGroupManager : 聚合
+    ResizablePanelManager *-- LayoutCalculator : 組合
+    ResizablePanelManager *-- HitRegionDetector : 組合
+    ResizablePanelManager *-- CursorManager : 組合
+    Panel --o ResizablePanelManager : 聚合
     LayoutCalculator --> UnitConverter : 依賴
 ```
 
@@ -121,7 +117,7 @@ classDiagram
 
 | Module | Description | Docs |
 |--------|-------------|------|
-| [ResizableGroupManager](docs/ResizableGroupManager.md) | Orchestrator，協調各模組，管理 panel 註冊、拖曳流程、容器 resize，對外提供事件通知 API | [details](docs/ResizableGroupManager.md) |
+| [ResizablePanelManager](docs/ResizablePanelManager.md) | Orchestrator，協調各模組，管理 panel 註冊、拖曳流程、容器 resize，對外提供事件通知 API | [details](docs/ResizablePanelManager.md) |
 | [LayoutCalculator](docs/LayoutCalculator.md) | Layout 數學引擎 — 初始分配、delta 調整、約束驗證、浮點容差比較 | [details](docs/LayoutCalculator.md) |
 | [UnitConverter](docs/UnitConverter.md) | 單位解析（`%`、`px`）與轉換 | [details](docs/UnitConverter.md) |
 | [HitRegionDetector](docs/HitRegionDetector.md) | 命中區域判定 — 座標比對偵測指標是否在 Panel 邊界，支援粗/細指標 | [details](docs/HitRegionDetector.md) |
@@ -153,7 +149,7 @@ classDiagram
 
 **pointerup**
 1. 重置 DragState 與 cursor
-2. 觸發 `LayoutChanged`（final）事件
+2. 觸發 `LayoutChangeEnd`（final）事件
 
 ### Container Resize（ResizeObserver）
 

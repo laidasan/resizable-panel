@@ -13,7 +13,7 @@ const PrimaryPointerButton = 0
 const PointerTypeMouse = 'mouse'
 
 /**
- * @class ResizableGroupManager
+ * @class ResizablePanelManager
  * @classdesc Orchestrator，協調 LayoutCalculator、HitRegionDetector、CursorManager、ResizeObserver，
  * 對外提供 panel 管理與事件通知 API。負責拖曳三階段流程與容器 resize 處理。
  *
@@ -22,7 +22,7 @@ const PointerTypeMouse = 'mouse'
  * @param {PanelConfig[]} [options.panelConfigs] - 初始 panel 配置
  *
  * @example
- * const manager = new ResizableGroupManager({
+ * const manager = new ResizablePanelManager({
  *   groupConfig: { element: groupEl, disabled: false, disableCursor: false },
  *   panelConfigs: [
  *     { id: 'main', element: mainEl, defaultSize: '70%', minSize: '30%' },
@@ -33,7 +33,7 @@ const PointerTypeMouse = 'mouse'
  * manager.on(manager.Event.LayoutChange, (layoutResult) => { })
  * const layoutResult = manager.activate()
  */
-export class ResizableGroupManager {
+export class ResizablePanelManager {
   _config = null
   _panels = []
   _layout = null
@@ -580,7 +580,7 @@ export class ResizableGroupManager {
   /**
    * @private
    * @returns {void}
-   * @description 結束拖曳 — 重置 DragState、還原 cursor、觸發 LayoutChanged
+   * @description 結束拖曳 — 重置 DragState、還原 cursor、觸發 LayoutChangeEnd
    * @example
    * this._endDrag()
    */
@@ -591,7 +591,7 @@ export class ResizableGroupManager {
       this._cursorManager.reset()
     }
 
-    this._emit(Event.LayoutChanged, this._toLayoutResult())
+    this._emit(Event.LayoutChangeEnd, this._toLayoutResult())
   }
 
   /**

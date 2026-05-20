@@ -1,5 +1,5 @@
 import { describe, test, expect, vi } from 'vitest'
-import { ResizableGroupManager } from '../../src/core/ResizableGroupManager.js'
+import { ResizablePanelManager } from '../../src/core/ResizablePanelManager.js'
 import { Event } from '../../src/core/Event.js'
 
 // --- helpers ---
@@ -39,7 +39,7 @@ function createManager(options = {}) {
   const groupConfig = options.groupConfig || createGroupConfig()
   const panelConfigs = options.panelConfigs || undefined
 
-  return new ResizableGroupManager({ groupConfig, panelConfigs })
+  return new ResizablePanelManager({ groupConfig, panelConfigs })
 }
 
 // --- tests ---
@@ -174,7 +174,7 @@ describe('Event', () => {
 
     expect(manager.Event).toBeDefined()
     expect(manager.Event.LayoutChange).toBe(Event.LayoutChange)
-    expect(manager.Event.LayoutChanged).toBe(Event.LayoutChanged)
+    expect(manager.Event.LayoutChangeEnd).toBe(Event.LayoutChangeEnd)
   })
 
 })
@@ -209,10 +209,10 @@ describe('on', () => {
     const changedCallback = vi.fn()
 
     manager.on(Event.LayoutChange, changeCallback)
-    manager.on(Event.LayoutChanged, changedCallback)
+    manager.on(Event.LayoutChangeEnd, changedCallback)
 
     expect(manager._eventListeners.get(Event.LayoutChange)).toEqual([changeCallback])
-    expect(manager._eventListeners.get(Event.LayoutChanged)).toEqual([changedCallback])
+    expect(manager._eventListeners.get(Event.LayoutChangeEnd)).toEqual([changedCallback])
   })
 })
 

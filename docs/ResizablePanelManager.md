@@ -1,4 +1,4 @@
-# ResizableGroupManager
+# ResizablePanelManager
 
 Orchestrator，協調 LayoutCalculator、HitRegionDetector、CursorManager、ResizeObserver，對外提供 panel 管理與事件通知 API。
 
@@ -8,7 +8,7 @@ Orchestrator，協調 LayoutCalculator、HitRegionDetector、CursorManager、Res
 classDiagram
     direction TB
 
-    class ResizableGroupManager {
+    class ResizablePanelManager {
         -_config : GroupConfig
         -_panels : PanelData[]
         -_layout : Layout
@@ -78,11 +78,11 @@ classDiagram
         +[panelId] : ~size: number, element: HTMLElement~
     }
 
-    ResizableGroupManager --> GroupConfig
-    ResizableGroupManager --> PanelData
-    ResizableGroupManager --> Layout
-    ResizableGroupManager --> LayoutResult
-    ResizableGroupManager --> DragState
+    ResizablePanelManager --> GroupConfig
+    ResizablePanelManager --> PanelData
+    ResizablePanelManager --> Layout
+    ResizablePanelManager --> LayoutResult
+    ResizablePanelManager --> DragState
     PanelData --> PanelConfig
     PanelData --> PanelConstraints
     DragState --> Layout
@@ -91,7 +91,7 @@ classDiagram
 ## Constructor
 
 ```js
-new ResizableGroupManager({ groupConfig, panelConfigs })
+new ResizablePanelManager({ groupConfig, panelConfigs })
 ```
 
 | Parameter | Type | Required | Description |
@@ -163,9 +163,9 @@ manager.on(manager.Event.LayoutChange, (layoutResult) => {
 | Event | Payload | Timing |
 |-------|---------|--------|
 | `LayoutChange` | `LayoutResult` | activate、每次 layout 變化（拖曳中持續觸發、resize 後） |
-| `LayoutChanged` | `LayoutResult` | 拖曳結束（pointerup） |
+| `LayoutChangeEnd` | `LayoutResult` | 拖曳結束（pointerup） |
 
-透過 `manager.Event.LayoutChange` / `manager.Event.LayoutChanged` 取得事件常數。
+透過 `manager.Event.LayoutChange` / `manager.Event.LayoutChangeEnd` 取得事件常數。
 
 ## Data Structures
 

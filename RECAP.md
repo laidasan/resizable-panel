@@ -22,10 +22,10 @@
 - [x] **v1 TDD 開發 — Task 02 LayoutCalculator 完成**
 - [x] **v1 TDD 開發 — Task 03 HitRegionDetector 完成**
 - [x] **v1 TDD 開發 — Task 04 CursorManager 完成**
-- [x] **v1 TDD 開發 — Task 05 ResizableGroupManager Phase 1（靜態邏輯）完成**
-- [x] **v1 TDD 開發 — Task 05 ResizableGroupManager Phase 2-4（activate/deactivate、拖曳三階段、ResizeObserver）完成**
+- [x] **v1 TDD 開發 — Task 05 ResizablePanelManager Phase 1（靜態邏輯）完成**
+- [x] **v1 TDD 開發 — Task 05 ResizablePanelManager Phase 2-4（activate/deactivate、拖曳三階段、ResizeObserver）完成**
 - [x] **Playground 手動測試環境建立**（`playground/` 目錄，Vite dev server）
-- [x] **ResizableGroupManager code check 修正**（5 項違規全部修正完成）
+- [x] **ResizablePanelManager code check 修正**（5 項違規全部修正完成）
 - [x] **v1 TDD 開發 — Task 06-1 validateLayout 重構**（實作 + 單元測試驗證通過）
 - [x] **CSS 策略決策**：採用原版 flex-grow 方式（flex-basis:0 + flex-grow:N）
 - [x] **Playground 新增 Flex 版 Demo**（Group 1F-6F + Group 7/7F 約束衝突對照）
@@ -81,7 +81,7 @@ SA 已通過完整性檢視（Spec 8 個章節逐條比對），詳見 `V1-SA.md
 
 | 模組 | 職責 |
 |------|------|
-| ResizableGroupManager | orchestrator，協調各模組，對外提供 API |
+| ResizablePanelManager | orchestrator，協調各模組，對外提供 API |
 | LayoutCalculator | layout 數學（初始分配、delta 調整、雙向 clamp、100% 不變式、layoutsEqual 含浮點容差） |
 | UnitConverter | 單位解析（%、px）與轉換 |
 | HitRegionDetector | 命中區域判定（座標比對，即時計算）、粗/細指標偵測 |
@@ -154,7 +154,7 @@ SA 已通過完整性檢視（Spec 8 個章節逐條比對），詳見 `V1-SA.md
 | 02 | `tasks/02-LayoutCalculator.md` | LayoutCalculator | UnitConverter | done |
 | 03 | `tasks/03-HitRegionDetector.md` | HitRegionDetector | 無 | done |
 | 04 | `tasks/04-CursorManager.md` | CursorManager | 無 | done |
-| 05 | `tasks/05-ResizableGroupManager.md` | ResizableGroupManager | 全部 | done |
+| 05 | `tasks/05-ResizablePanelManager.md` | ResizablePanelManager | 全部 | done |
 | 06-1 | `tasks/06-1-重構-validateLayout-logic.md` | LayoutCalculator 重構 | 02 | done (verified) |
 | 06 | `tasks/06-Panel-Vue-SFC.md` | Panel (Vue SFC) | Manager | done |
 
@@ -215,7 +215,7 @@ LayoutCalculator 的 `for` 迴圈已分三類處理：
 
 ## Task 05 測試策略決策（2026-05-20）
 
-ResizableGroupManager 依據是否涉及 DOM layout 拆為兩層測試：
+ResizablePanelManager 依據是否涉及 DOM layout 拆為兩層測試：
 
 | 層級 | Phase | 測什麼 | 環境 |
 |------|-------|--------|------|
@@ -240,15 +240,15 @@ ResizableGroupManager 依據是否涉及 DOM layout 拆為兩層測試：
 
 ### 新增檔案
 
-- `src/core/Event.js` — Event enum（LayoutChange / LayoutChanged）
-- `src/core/ResizableGroupManager.js` — Manager 主體
-- `tests/core/ResizableGroupManager.test.js` — Phase 1 單元測試
+- `src/core/Event.js` — Event enum（LayoutChange / LayoutChangeEnd）
+- `src/core/ResizablePanelManager.js` — Manager 主體
+- `tests/core/ResizablePanelManager.test.js` — Phase 1 單元測試
 
 ---
 
-## ResizableGroupManager Code Check（2026-05-20） — 已完成
+## ResizablePanelManager Code Check（2026-05-20） — 已完成
 
-對 `ResizableGroupManager.js` 進行編碼風格規則檢查，5 項違規全部修正完成：
+對 `ResizablePanelManager.js` 進行編碼風格規則檢查，5 項違規全部修正完成：
 
 | # | 違規項目 | 修正摘要 |
 |---|---------|---------|
@@ -432,7 +432,7 @@ docs/
 ├── LayoutCalculator.md
 ├── HitRegionDetector.md
 ├── CursorManager.md
-├── ResizableGroupManager.md
+├── ResizablePanelManager.md
 └── flows/
     └── flowSpec.md（從根目錄搬入）
 ```
@@ -446,7 +446,7 @@ docs/
 ### 進度
 
 - [x] README.md
-- [x] docs/ 各 class 文件（ResizableGroupManager, LayoutCalculator, UnitConverter, HitRegionDetector, CursorManager）
+- [x] docs/ 各 class 文件（ResizablePanelManager, LayoutCalculator, UnitConverter, HitRegionDetector, CursorManager）
 - [x] docs/flows/flowSpec.md（從根目錄複製到 docs/flows/，根目錄原檔保留待確認刪除）
 
 ---

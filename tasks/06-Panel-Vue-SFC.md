@@ -1,7 +1,7 @@
 # Task 06: Panel Vue SFC
 
 > 狀態：pending
-> 依賴：Task 05 — ResizableGroupManager
+> 依賴：Task 05 — ResizablePanelManager
 > 對應 SA 章節：Class Diagram — Panel、Spec §1
 
 ---
