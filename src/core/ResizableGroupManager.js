@@ -366,7 +366,7 @@ export class ResizableGroupManager {
    * document.addEventListener('pointerdown', this._boundHandlePointerDown)
    */
   _handlePointerDown(event) {
-    if (!event.defaultPrevented && !this._isNonPrimaryMouseButton(event)) {
+    if (!(event.defaultPrevented || this._isNonPrimaryMouseButton(event))) {
       const dragTarget = this._resolveDragTarget(event)
 
       if (dragTarget) {
@@ -418,7 +418,7 @@ export class ResizableGroupManager {
       if (hitResult.hit) {
         const leftPanel = this._panels[hitResult.boundaryIndex]
         const rightPanel = this._panels[hitResult.boundaryIndex + 1]
-        const panelsEnabled = !leftPanel.config.disabled && !rightPanel.config.disabled
+        const panelsEnabled = !(leftPanel.config.disabled || rightPanel.config.disabled)
 
         if (panelsEnabled) {
           dragTarget = { hitResult, leftPanel, rightPanel }
