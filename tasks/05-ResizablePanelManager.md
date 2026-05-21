@@ -37,7 +37,7 @@ Orchestrator class，協調 LayoutCalculator、HitRegionDetector、CursorManager
 
 // Event 類型
 Event.LayoutChange  — 拖曳中每幀
-Event.LayoutChangeEnd — 拖曳結束
+Event.DragEnd — 拖曳結束
 ```
 
 ---
@@ -99,7 +99,7 @@ Event.LayoutChangeEnd — 拖曳結束
 
 - [ ] **重置 DragState** — 所有欄位歸零
 - [ ] **CursorManager.reset()** — 還原游標
-- [ ] **觸發 LayoutChangeEnd** — 傳送最終 LayoutResult
+- [ ] **觸發 DragEnd** — 傳送最終 LayoutResult
 
 ### ResizeObserver
 

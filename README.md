@@ -149,7 +149,7 @@ classDiagram
 
 **pointerup**
 1. 重置 DragState 與 cursor
-2. 觸發 `LayoutChangeEnd`（final）事件
+2. 觸發 `DragEnd`（final）事件
 
 ### Container Resize（ResizeObserver）
 

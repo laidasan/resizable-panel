@@ -33,6 +33,7 @@
 - [x] **LayoutCalculator `_applyConstraints` 語意化重構**（拆為 `_clampAllPanels` reduce + `_redistributeRemaining` forEach pipeline）
 - [x] **Playground 新增 Group 8 Demo**（Panel 動態顯示/隱藏：deactivate → register/unRegister → activate 循環）
 - [x] **v1 開發 — Task 06 Panel Vue SFC 完成**（元件實作 + Playground 串接驗證通過）
+- [ ] **v1 開發 — Task 07 ConstraintStrategy 策略模式重構**（進行中）
 
 ---
 
@@ -157,6 +158,7 @@ SA 已通過完整性檢視（Spec 8 個章節逐條比對），詳見 `V1-SA.md
 | 05 | `tasks/05-ResizablePanelManager.md` | ResizablePanelManager | 全部 | done |
 | 06-1 | `tasks/06-1-重構-validateLayout-logic.md` | LayoutCalculator 重構 | 02 | done (verified) |
 | 06 | `tasks/06-Panel-Vue-SFC.md` | Panel (Vue SFC) | Manager | done |
+| 07 | `tasks/07-ConstraintStrategy.md` | ConstraintStrategy 重構 | LayoutCalculator | in progress |
 
 Task 02-04 之間無依賴，完成 01 後可平行開發。
 
@@ -240,7 +242,7 @@ ResizablePanelManager 依據是否涉及 DOM layout 拆為兩層測試：
 
 ### 新增檔案
 
-- `src/core/Event.js` — Event enum（LayoutChange / LayoutChangeEnd）
+- `src/core/Event.js` — Event enum（LayoutChange / DragEnd）
 - `src/core/ResizablePanelManager.js` — Manager 主體
 - `tests/core/ResizablePanelManager.test.js` — Phase 1 單元測試
 
@@ -404,7 +406,7 @@ PageLayout.vue 展示完整串接流程：mounted 建立 Manager → registerPan
 
 ---
 
-## Session 6 — README 與開發者文件（進行中）
+## Session 6 — README 與開發者文件（完成）
 
 ### 目標
 
@@ -451,6 +453,39 @@ docs/
 
 ---
 
+## Session 7 — ConstraintStrategy 策略模式重構（進行中）
+
+### 目標
+
+將 LayoutCalculator 的 `_applyConstraints` 抽為可替換策略，支援 collapse 行為（視窗縮小時低 index panel 優先壓縮）。
+
+### 規格摘要
+
+| 項目 | 決定 |
+|------|------|
+| 影響路徑 | init + resize（經過 `_applyConstraints`） |
+| 拖曳路徑 | 不動，碰到 minSize 停住 |
+| 架構 | LayoutCalculator 持有 ConstraintStrategy，委派 `_applyConstraints` |
+| 現有行為 | 搬入 ProportionalStrategy，行為不變 |
+| 新增行為 | CollapseStrategy — DOM 順序，index 小的先被壓縮 |
+| collapse 順序 | DOM 順序（index 小 → 先壓縮） |
+| panel 壓到 0 | 保留 0 寬，不隱藏 |
+
+### 開發順序
+
+- [ ] 定義 ConstraintStrategy 介面
+- [ ] 抽出 ProportionalStrategy（搬現有邏輯，驗證現有測試通過）
+- [ ] 實作 CollapseStrategy + 測試
+- [ ] LayoutCalculator 接入 strategy，驗證整合
+- [ ] Manager 層串接
+- [ ] Playground 手動驗證
+
+### Task 文件
+
+`tasks/07-ConstraintStrategy.md`
+
+---
+
 ## 待辦（非本次 Session）
 
 1. **Panel Vue SFC 單元測試**（待安裝 `@vue/test-utils@1` 後補上）
@@ -472,6 +507,7 @@ docs/
 | `.claude/rules/development/TDD開發原則.md` | TDD 開發流程規範 |
 | `.claude/rules/development/程式開發原則.md` | SOLID、OOP、Facade 原則 |
 | `playground/PageLayout.vue` | Manager + Panel SFC 串接驗證範例 |
+| `tasks/07-ConstraintStrategy.md` | ConstraintStrategy 策略模式重構規格 |
 
 ---
 

@@ -163,9 +163,9 @@ manager.on(manager.Event.LayoutChange, (layoutResult) => {
 | Event | Payload | Timing |
 |-------|---------|--------|
 | `LayoutChange` | `LayoutResult` | activate、每次 layout 變化（拖曳中持續觸發、resize 後） |
-| `LayoutChangeEnd` | `LayoutResult` | 拖曳結束（pointerup） |
+| `DragEnd` | `LayoutResult` | 拖曳結束（pointerup） |
 
-透過 `manager.Event.LayoutChange` / `manager.Event.LayoutChangeEnd` 取得事件常數。
+透過 `manager.Event.LayoutChange` / `manager.Event.DragEnd` 取得事件常數。
 
 ## Data Structures
 

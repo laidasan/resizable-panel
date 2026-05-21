@@ -79,7 +79,7 @@
 | 指標適應 | coarse/fine 命中區域自適應 | 18 |
 | 游標回饋 | hover cursor + 拖曳全域 cursor + userSelect | 19, 20, 21 |
 | 容器 Resize | ResizeObserver + preserve-relative-size + 約束修正 | 40, 41, 43 |
-| 事件回調 | onLayoutChange（每幀）/ onLayoutChangeEnd（結束） | 70, 71 |
+| 事件回調 | onLayoutChange（每幀）/ onDragEnd（結束） | 70, 71 |
 
 **刻意排除：**
 - Separator 元件（v2）

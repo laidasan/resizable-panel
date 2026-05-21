@@ -392,7 +392,7 @@ Manager 的拖曳狀態，pointerdown 時建立，pointerup 時重置。
 | 事件名稱 | Callback 簽章 | 觸發時機 |
 |----------|------|---------|
 | `Event.LayoutChange` | `(layoutResult: LayoutResult) => void` | 拖曳中每幀 |
-| `Event.LayoutChangeEnd` | `(layoutResult: LayoutResult) => void` | 拖曳結束 |
+| `Event.DragEnd` | `(layoutResult: LayoutResult) => void` | 拖曳結束 |
 
 ### Public API
 
@@ -427,7 +427,7 @@ const manager = new ResizablePanelManager({
 })
 
 manager.on(manager.Event.LayoutChange, function (layoutResult) { /* 每幀更新 */ })
-manager.on(manager.Event.LayoutChangeEnd, function (layoutResult) { /* 拖曳結束 */ })
+manager.on(manager.Event.DragEnd, function (layoutResult) { /* 拖曳結束 */ })
 
 const layoutResult = manager.activate()
 ```
@@ -674,7 +674,7 @@ flowchart TD
     EmitChange --> End2
 ```
 
-**iframe 指標釋放偵測**：使用者在拖曳中將指標移入 `<iframe>` 並放開時，pointerup 不會冒泡到外層 document。透過 pointermove 中檢查 `event.buttons === 0` 偵測此情況，強制走結束流程（重置 DragState、reset cursor、觸發 LayoutChangeEnd）。
+**iframe 指標釋放偵測**：使用者在拖曳中將指標移入 `<iframe>` 並放開時，pointerup 不會冒泡到外層 document。透過 pointermove 中檢查 `event.buttons === 0` 偵測此情況，強制走結束流程（重置 DragState、reset cursor、觸發 DragEnd）。
 
 **delta 計算基準**：始終以 `initialLayout + delta` 計算，不累計。避免浮點誤差漂移。
 
@@ -687,7 +687,7 @@ flowchart TD
     DragCheck -- false --> Ignore(["不處理"])
     DragCheck -- true --> ResetState["重置 DragState<br/>dragging = false<br/>initialLayout = null<br/>pointerDownAt = null<br/>activeBoundaryIndex = null"]
     ResetState --> ResetCursor["CursorManager.reset()"]
-    ResetCursor --> EmitChanged["觸發 LayoutChangeEnd 事件<br/>傳送最終 LayoutResult"]
+    ResetCursor --> EmitChanged["觸發 DragEnd 事件<br/>傳送最終 LayoutResult"]
     EmitChanged --> Prevent["event.preventDefault()"]
     Prevent --> Return(["結束"])
 ```
