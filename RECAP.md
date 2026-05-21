@@ -33,7 +33,8 @@
 - [x] **LayoutCalculator `_applyConstraints` 語意化重構**（拆為 `_clampAllPanels` reduce + `_redistributeRemaining` forEach pipeline）
 - [x] **Playground 新增 Group 8 Demo**（Panel 動態顯示/隱藏：deactivate → register/unRegister → activate 循環）
 - [x] **v1 開發 — Task 06 Panel Vue SFC 完成**（元件實作 + Playground 串接驗證通過）
-- [ ] **v1 開發 — Task 07 ConstraintStrategy 策略模式重構**（進行中）
+- [x] **v1 開發 — Task 07-1 preserve-pixel-size**（完成）
+- [ ] ~~Task 07 ConstraintStrategy 策略模式重構~~（移至 Backlog）
 
 ---
 
@@ -158,7 +159,8 @@ SA 已通過完整性檢視（Spec 8 個章節逐條比對），詳見 `V1-SA.md
 | 05 | `tasks/05-ResizablePanelManager.md` | ResizablePanelManager | 全部 | done |
 | 06-1 | `tasks/06-1-重構-validateLayout-logic.md` | LayoutCalculator 重構 | 02 | done (verified) |
 | 06 | `tasks/06-Panel-Vue-SFC.md` | Panel (Vue SFC) | Manager | done |
-| 07 | `tasks/07-ConstraintStrategy.md` | ConstraintStrategy 重構 | LayoutCalculator | in progress |
+| 07 | `tasks/07-ConstraintStrategy.md` | ConstraintStrategy 重構 | LayoutCalculator | backlog |
+| 07-1 | `tasks/07-1-preserve-pixel-size.md` | preserve-pixel-size | LayoutCalculator, Manager | done |
 
 Task 02-04 之間無依賴，完成 01 後可平行開發。
 
@@ -453,36 +455,37 @@ docs/
 
 ---
 
-## Session 7 — ConstraintStrategy 策略模式重構（進行中）
+## Session 7 — ConstraintStrategy（移至 Backlog）
+
+原定將 `_applyConstraints` 抽為策略模式，支援 collapse 行為。經討論後優先處理 preserve-pixel-size，Task 07 移至 Backlog。詳見 `tasks/07-ConstraintStrategy.md`。
+
+---
+
+## Session 7 — preserve-pixel-size（完成）
 
 ### 目標
 
-將 LayoutCalculator 的 `_applyConstraints` 抽為可替換策略，支援 collapse 行為（視窗縮小時低 index panel 優先壓縮）。
+實作 per-panel 的 `groupResizeBehavior` 設定，容器 resize 時可選擇保持 pixel 尺寸不變。
 
-### 規格摘要
+### 決策
 
 | 項目 | 決定 |
 |------|------|
-| 影響路徑 | init + resize（經過 `_applyConstraints`） |
-| 拖曳路徑 | 不動，碰到 minSize 停住 |
-| 架構 | LayoutCalculator 持有 ConstraintStrategy，委派 `_applyConstraints` |
-| 現有行為 | 搬入 ProportionalStrategy，行為不變 |
-| 新增行為 | CollapseStrategy — DOM 順序，index 小的先被壓縮 |
-| collapse 順序 | DOM 順序（index 小 → 先壓縮） |
-| panel 壓到 0 | 保留 0 寬，不隱藏 |
+| 版本歸屬 | v1 |
+| 粒度 | per-panel（與原版一致） |
+| 參考實作 | react-resizable-panels `preserveFixedPanelSizes.ts` |
 
-### 開發順序
+### 完成內容
 
-- [ ] 定義 ConstraintStrategy 介面
-- [ ] 抽出 ProportionalStrategy（搬現有邏輯，驗證現有測試通過）
-- [ ] 實作 CollapseStrategy + 測試
-- [ ] LayoutCalculator 接入 strategy，驗證整合
-- [ ] Manager 層串接
-- [ ] Playground 手動驗證
+- `PanelConfig` 新增 `groupResizeBehavior` 欄位（`'preserve-pixel-size'` / `'preserve-relative-size'`，預設後者）
+- `LayoutCalculator.preservePixelSizes()` — 純數學計算，15 個測試通過
+- `ResizablePanelManager._handleResize` — 插入 `preservePixelSizes` 呼叫，新增 `_lastGroupSize` 追蹤容器寬度
+- Playground 手動驗證通過
+- docs/ 文件同步更新（LayoutCalculator.md、ResizablePanelManager.md）
 
 ### Task 文件
 
-`tasks/07-ConstraintStrategy.md`
+`tasks/07-1-preserve-pixel-size.md`
 
 ---
 

@@ -13,6 +13,7 @@ classDiagram
         +calculateInitialLayout(panels: PanelData[], availableSize: number) Layout
         +adjustLayoutByDelta(baseLayout: Layout, delta: number, boundaryIndex: number, panels: PanelData[]) Layout
         +validateLayout(layout: Layout, panels: PanelData[]) Layout
+        +preservePixelSizes(prevLayout: Layout, prevGroupSize: number, nextGroupSize: number, panels: PanelData[]) Layout
         +layoutsEqual(a: Layout, b: Layout) boolean
     }
 
@@ -78,6 +79,22 @@ calculator.adjustLayoutByDelta({ a: 50, b: 50 }, 30, 0, panels)
 // panel a minSize=40, layout 中 a=30 違規
 calculator.validateLayout({ a: 30, b: 70 }, panels)
 // { a: 40, b: 60 }
+```
+
+### preservePixelSizes(prevLayout, prevGroupSize, nextGroupSize, panels) → Layout
+
+容器 resize 時，保持標記為 `preserve-pixel-size` 的 panel 像素尺寸不變，`preserve-relative-size` 的 panel 按比例瓜分剩餘空間。
+
+- 輸出未經 constraint clamp，由呼叫端接 `validateLayout` 處理（SRP）
+- 全部為 `preserve-relative-size` 時短路回傳原 layout，行為與未加此功能完全一致
+- per-panel 粒度，同一 group 內可混用兩種策略
+
+**短路條件**：`prevGroupSize ≤ 0`、`nextGroupSize ≤ 0`、尺寸相等、無 pixel panel、無 flexible panel。
+
+```js
+// sidebar 保持 300px，容器從 1000px 縮到 500px
+calculator.preservePixelSizes({ sidebar: 30, main: 70 }, 1000, 500, panels)
+// { sidebar: 60, main: 40 }
 ```
 
 ### layoutsEqual(a, b) → boolean

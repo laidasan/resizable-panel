@@ -1,7 +1,7 @@
 # preserve-pixel-size 規劃
 
 > 建立日期：2026-05-20
-> 狀態：待評估
+> 狀態：完成
 > 關聯：`V1-SPEC.md` 7.2 節、`V1-SA.md` ResizeObserver 流程
 
 ---
@@ -131,6 +131,6 @@ constraints 重算管的是「邊界在哪」，preserve-pixel-size 管的是「
 
 ## 待確認事項
 
-- [ ] 是否納入 v1.x 或留到 v2
-- [ ] per-panel 混用 vs group-level 統一設定（v1 可先做 group-level 簡化版）
+- [x] 是否納入 v1.x 或留到 v2 → **納入 v1**
+- [x] per-panel 混用 vs group-level 統一設定 → **per-panel（與原版一致）**
 - [ ] 測試案例設計（縮小 → 放大來回、混用場景、極端值）

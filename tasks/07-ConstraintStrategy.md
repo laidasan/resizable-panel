@@ -1,6 +1,6 @@
 # Task 07 — ConstraintStrategy（策略模式重構）
 
-> 狀態：待開發
+> 狀態：Backlog（v1 暫緩，優先處理 preserve-pixel-size）
 
 ---
 

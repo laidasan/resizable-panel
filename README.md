@@ -10,6 +10,7 @@ Vue 2 的可拖曳調整大小面板元件庫。核心邏輯以純 JavaScript cl
 - 約束衝突自動處理（maxSize 優先）
 - 拖曳期間自動管理 cursor 樣式與文字選取
 - Panel 動態註冊 / 移除
+- Per-panel 容器 resize 策略（保持像素尺寸 / 保持相對比例）
 
 ## Installation
 
@@ -89,74 +90,104 @@ export default {
 
 Group 容器需設定 `display: flex`。Panel 透過 `flex-basis: 0` + `flex-grow` 分配空間，容器的 `flex-direction` 決定排列方向。
 
-## Architecture Overview
+## Manager 使用說明
 
-```mermaid
-classDiagram
-    direction TB
+`ResizablePanelManager` 是核心 API，負責 panel 註冊、layout 計算、拖曳與容器 resize 處理。以下以純 JS API 說明，不綁定特定框架。
 
-    class ResizablePanelManager {
-        <<orchestrator>>
-    }
-    class LayoutCalculator
-    class UnitConverter
-    class HitRegionDetector
-    class CursorManager
-    class Panel {
-        <<Vue SFC>>
-    }
+### 建立 Manager
 
-    ResizablePanelManager *-- LayoutCalculator : 組合
-    ResizablePanelManager *-- HitRegionDetector : 組合
-    ResizablePanelManager *-- CursorManager : 組合
-    Panel --o ResizablePanelManager : 聚合
-    LayoutCalculator --> UnitConverter : 依賴
+```js
+import { ResizablePanelManager } from 'vue-resizable-panel/src/core/ResizablePanelManager.js'
+
+const manager = new ResizablePanelManager({
+  groupConfig: {
+    element: document.getElementById('panel-group'),
+  },
+  panelConfigs: [
+    { id: 'main', element: document.getElementById('main'), defaultSize: '70%', minSize: '200px' },
+    { id: 'side', element: document.getElementById('side'), defaultSize: '30%', minSize: '20%' },
+  ],
+})
 ```
 
-### Modules
+Constructor 接收 `groupConfig`（必要）與 `panelConfigs`（可選）。`panelConfigs` 是語法糖，等同於逐一呼叫 `registerPanel()`。
 
-| Module | Description | Docs |
-|--------|-------------|------|
-| [ResizablePanelManager](docs/ResizablePanelManager.md) | Orchestrator，協調各模組，管理 panel 註冊、拖曳流程、容器 resize，對外提供事件通知 API | [details](docs/ResizablePanelManager.md) |
-| [LayoutCalculator](docs/LayoutCalculator.md) | Layout 數學引擎 — 初始分配、delta 調整、約束驗證、浮點容差比較 | [details](docs/LayoutCalculator.md) |
-| [UnitConverter](docs/UnitConverter.md) | 單位解析（`%`、`px`）與轉換 | [details](docs/UnitConverter.md) |
-| [HitRegionDetector](docs/HitRegionDetector.md) | 命中區域判定 — 座標比對偵測指標是否在 Panel 邊界，支援粗/細指標 | [details](docs/HitRegionDetector.md) |
-| [CursorManager](docs/CursorManager.md) | 拖曳期間全域樣式管理 — cursor 與 user-select，作用於 document.body | [details](docs/CursorManager.md) |
+### Panel 註冊 / 移除
 
-## Core Flows
+```js
+const panelId = manager.registerPanel({
+  id: 'extra',
+  element: document.getElementById('extra'),
+  defaultSize: '20%',
+  minSize: '10%',
+  maxSize: '50%',
+})
 
-### activate()
+manager.unRegisterPanel('extra')
+```
 
-1. 計算容器可用空間（`_getAvailableSize`）
-2. 將所有 panel 的 `minSize` / `maxSize` 從原始單位轉為百分比（`_computeAllConstraints`）
-3. 根據 `defaultSize` 計算初始 layout，超出 100% 則等比例 normalize（`calculateInitialLayout`）
-4. 套用 min/max 約束，溢出部分從 index 0 開始重分配（`_applyConstraints`）
-5. 綁定 pointer 事件與 ResizeObserver
-6. 觸發 `LayoutChange` 事件，回傳 `LayoutResult`
+`registerPanel()` 只做註冊，不觸發 layout 重算。需在 `activate()` 之前完成註冊。動態增減 panel 時，先 `deactivate()` → 註冊/移除 → 再 `activate()`。
 
-### Drag（拖曳三階段）
+### 生命週期：activate / deactivate
 
-**pointerdown**
-1. 命中偵測（`HitRegionDetector.detect`）判斷指標是否在 Panel 邊界
-2. 命中且左右 Panel 皆未 disabled → 建立 DragState，記錄 `initialLayout` 與 `pointerDownAt`
-3. 設定拖曳 cursor（`CursorManager.setDrag`）
+```js
+const layoutResult = manager.activate()
 
-**pointermove**
-1. 計算 pixel delta（當前座標 - pointerDownAt），轉為百分比
-2. 以 `initialLayout`（非累計）為基底，呼叫 `adjustLayoutByDelta` 計算新 layout
-3. 左右 Panel 各自 clamp 到 min/max，取較小 delta 一側（全有或全無）
-4. layout 有變化時觸發 `LayoutChange`，cursor 反映約束方向
+manager.deactivate()
+```
 
-**pointerup**
-1. 重置 DragState 與 cursor
-2. 觸發 `DragEnd`（final）事件
+- `activate()` — 計算初始 layout、啟動 ResizeObserver 與 pointer 事件監聽，回傳初始 `LayoutResult`
+- `deactivate()` — 停止計算與監聽，已註冊的 panels 和事件保留
+- 可重複呼叫 `activate()` / `deactivate()` 循環
 
-### Container Resize（ResizeObserver）
+### 事件監聽：on / off
 
-1. 容器寬度變化時觸發
-2. 以新寬度重算所有 panel 的 px → % 約束（`_computeAllConstraints`）
-3. 以既有 layout 呼叫 `validateLayout` 驗證是否仍合法
-4. 約束收緊導致違規時，自動 clamp + 重分配
-5. layout 有變化時觸發 `LayoutChange`
+```js
+function handleLayoutChange(layoutResult) {
+  // layoutResult: { panelId: { size: number, element: HTMLElement } }
+}
 
-> 完整數值走讀範例請參考 [flowSpec.md](docs/flows/flowSpec.md)（以 Group 1 配置帶入具體數值追蹤三階段計算流程）。
+manager.on(manager.Event.LayoutChange, handleLayoutChange)
+manager.on(manager.Event.DragEnd, handleDragEnd)
+
+manager.off(manager.Event.LayoutChange, handleLayoutChange)
+```
+
+| 事件 | 觸發時機 | Callback 參數 |
+|------|---------|--------------|
+| `LayoutChange` | layout 變化時（activate、拖曳、容器 resize） | `LayoutResult` — `{ [panelId]: { size, element } }` |
+| `DragEnd` | 拖曳結束時 | `LayoutResult` — 最終 layout |
+
+`off()` 需傳入與 `on()` 相同的 callback 參照。
+
+### 取得當前 Layout
+
+```js
+const layoutResult = manager.getLayout()
+// 未 activate 時回傳 null
+```
+
+## GroupConfig
+
+| 欄位 | 型別 | 預設值 | 說明 |
+|------|------|--------|------|
+| `element` | `HTMLElement` | — (必要) | Group 容器 DOM 元素，作為 ResizeObserver 監聽目標與座標計算基準 |
+| `disabled` | `boolean` | `false` | 停用整組 resize，設為 `true` 時 pointerdown 不會觸發拖曳 |
+| `disableCursor` | `boolean` | `false` | 關閉游標管理，設為 `true` 時拖曳期間不會修改 cursor 與 user-select 樣式 |
+| `resizeTargetMinimumSize` | `{ coarse: number, fine: number }` | `{ coarse: 20, fine: 10 }` | 命中區域大小（px）。`coarse` 用於觸控裝置，`fine` 用於滑鼠 |
+
+## PanelConfig
+
+| 欄位 | 型別 | 預設值 | 說明 |
+|------|------|--------|------|
+| `id` | `string` | — (必要) | Panel 唯一識別，用於 layout 物件的 key |
+| `element` | `HTMLElement` | — (必要) | Panel DOM 元素，用於座標計算與排序 |
+| `defaultSize` | `string` | — | 初始尺寸，支援 `%` 與 `px`（如 `'70%'`、`'200px'`）。未設定時均分剩餘空間 |
+| `minSize` | `string` | `'0%'` | 最小尺寸，支援 `%` 與 `px`。拖曳與容器 resize 時皆受此約束 |
+| `maxSize` | `string` | `'100%'` | 最大尺寸，支援 `%` 與 `px`。`minSize` > `maxSize` 衝突時 `maxSize` 勝出 |
+| `disabled` | `boolean` | `false` | 停用此 panel 的 resize，相鄰邊界不可拖曳 |
+| `groupResizeBehavior` | `string` | `'preserve-relative-size'` | 容器 resize 時的尺寸策略。`'preserve-pixel-size'`：保持像素尺寸不變；`'preserve-relative-size'`：保持相對比例不變 |
+
+## Architecture
+
+深入了解內部架構與模組設計請參考 [Architecture Overview](docs/ArchitectureOverview.md)。

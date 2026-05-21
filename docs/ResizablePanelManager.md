@@ -18,6 +18,7 @@ classDiagram
         -_resizeObserver : ResizeObserver
         -_eventListeners : Map
         -_active : boolean
+        -_lastGroupSize : number | null
         -_dragState : DragState
         +registerPanel(config: PanelConfig) string
         +unRegisterPanel(panelId: string) void
@@ -52,6 +53,7 @@ classDiagram
         +minSize : number | string
         +maxSize : number | string
         +disabled : boolean
+        +groupResizeBehavior : string
     }
 
     class PanelData {
@@ -127,6 +129,7 @@ manager.registerPanel({
 | `minSize` | `number \| string` | No | 最小尺寸，預設 `'0%'` |
 | `maxSize` | `number \| string` | No | 最大尺寸，預設 `'100%'` |
 | `disabled` | `boolean` | No | 停用該 panel 的 resize，預設 `false` |
+| `groupResizeBehavior` | `string` | No | 容器 resize 時的尺寸保持策略：`'preserve-pixel-size'` 或 `'preserve-relative-size'`，預設 `'preserve-relative-size'` |
 
 ### unRegisterPanel(panelId) → void
 
@@ -184,6 +187,22 @@ manager.on(manager.Event.LayoutChange, (layoutResult) => {
 }
 ```
 
+## Resize Flow
+
+容器尺寸變化時的處理流程：
+
+```
+resize → _computeAllConstraints(width)
+       → preservePixelSizes(prevLayout, _lastGroupSize, width, panels)
+       → validateLayout(preservedLayout, panels)
+       → 比較 → emit LayoutChange
+       → 更新 _lastGroupSize
+```
+
+- `_lastGroupSize` 在 `activate` 時初始化為容器寬度，`deactivate` 時清為 `null`
+- `preservePixelSizes` 在 `_computeAllConstraints`（重算 constraint 邊界）之後、`validateLayout`（clamp）之前執行
+- 全部 panel 為 `preserve-relative-size` 時，`preservePixelSizes` 短路回傳原 layout，行為與未加此功能完全一致
+
 ## Design Decisions
 
 - Panel 順序基於 DOM 位置（offsetLeft 排序）
@@ -191,3 +210,4 @@ manager.on(manager.Event.LayoutChange, (layoutResult) => {
 - setPointerCapture 延遲到 pointermove，避免影響 click 事件
 - 約束衝突時 maxSize 永遠勝出
 - iframe 指標釋放偵測：pointermove 中檢查 `event.buttons === 0`
+- `groupResizeBehavior` 為 per-panel 設定（與 react-resizable-panels 一致），同一 group 內可混用
