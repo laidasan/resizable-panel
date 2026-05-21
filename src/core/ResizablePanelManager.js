@@ -580,7 +580,7 @@ export class ResizablePanelManager {
   /**
    * @private
    * @returns {void}
-   * @description 結束拖曳 — 重置 DragState、還原 cursor、觸發 LayoutChangeEnd
+   * @description 結束拖曳 — 重置 DragState、還原 cursor、觸發 DragEnd
    * @example
    * this._endDrag()
    */
@@ -591,7 +591,7 @@ export class ResizablePanelManager {
       this._cursorManager.reset()
     }
 
-    this._emit(Event.LayoutChangeEnd, this._toLayoutResult())
+    this._emit(Event.DragEnd, this._toLayoutResult())
   }
 
   /**

@@ -174,7 +174,7 @@ describe('Event', () => {
 
     expect(manager.Event).toBeDefined()
     expect(manager.Event.LayoutChange).toBe(Event.LayoutChange)
-    expect(manager.Event.LayoutChangeEnd).toBe(Event.LayoutChangeEnd)
+    expect(manager.Event.DragEnd).toBe(Event.DragEnd)
   })
 
 })
@@ -209,10 +209,10 @@ describe('on', () => {
     const changedCallback = vi.fn()
 
     manager.on(Event.LayoutChange, changeCallback)
-    manager.on(Event.LayoutChangeEnd, changedCallback)
+    manager.on(Event.DragEnd, changedCallback)
 
     expect(manager._eventListeners.get(Event.LayoutChange)).toEqual([changeCallback])
-    expect(manager._eventListeners.get(Event.LayoutChangeEnd)).toEqual([changedCallback])
+    expect(manager._eventListeners.get(Event.DragEnd)).toEqual([changedCallback])
   })
 })
 
