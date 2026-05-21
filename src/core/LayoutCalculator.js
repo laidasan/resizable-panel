@@ -1,4 +1,5 @@
 import { keys, values, isNil, all, map, partition, fromPairs, sum } from 'ramda'
+import { GroupResizeBehavior } from './GroupResizeBehavior.js'
 
 /**
  * @class LayoutCalculator
@@ -417,6 +418,130 @@ export class LayoutCalculator {
   }
 
   /**
+   * @param {Layout} prevLayout - 前一次的 layout
+   * @param {number} prevGroupSize - 前一次容器寬度（px）
+   * @param {number} nextGroupSize - 當前容器寬度（px）
+   * @param {PanelData[]} panels - panel 資料陣列
+   * @returns {Layout} 調整後的 layout（未驗證，需再過 validateLayout）
+   * @description 容器 resize 時，保持標記為 preserve-pixel-size 的 panel 像素尺寸不變，
+   * preserve-relative-size 的 panel 按比例瓜分剩餘空間。
+   *
+   * 短路條件：prevGroupSize ≤ 0、nextGroupSize ≤ 0、尺寸相等、無 pixel panel、無 flexible panel。
+   * 輸出未經 constraint clamp，由呼叫端接 validateLayout 處理。
+   *
+   * @example
+   * // sidebar 保持 300px，容器從 1000px 縮到 500px
+   * calculator.preservePixelSizes({ sidebar: 30, main: 70 }, 1000, 500, panels)
+   * // => { sidebar: 60, main: 40 }
+   */
+  preservePixelSizes(prevLayout, prevGroupSize, nextGroupSize, panels) {
+    const isShortCircuit = prevGroupSize <= 0 || nextGroupSize <= 0 || prevGroupSize === nextGroupSize
+
+    const { pixelPanelEntries, flexiblePanelIds, flexiblePanelsTotalPrevSize, hasPixelPanels } =
+      isShortCircuit
+        ? { pixelPanelEntries: [], flexiblePanelIds: [], flexiblePanelsTotalPrevSize: 0, hasPixelPanels: false }
+        : this._classifyPanelsByResizeBehavior(prevLayout, panels, prevGroupSize, nextGroupSize)
+
+    const canAdjust = hasPixelPanels && flexiblePanelIds.length > 0
+
+
+    return canAdjust
+      ? this._buildPreservedLayout(prevLayout, pixelPanelEntries, flexiblePanelIds, flexiblePanelsTotalPrevSize)
+      : prevLayout
+  }
+
+  /**
+   * @private
+   * @param {Layout} prevLayout - 前一次的 layout
+   * @param {Array<[string, number]>} pixelPanelEntries - pixel panel 的 [id, newPercent] 陣列
+   * @param {string[]} flexiblePanelIds - flexible panel 的 id 列表
+   * @param {number} flexiblePanelsTotalPrevSize - flexible panel 原始百分比加總
+   * @returns {Layout} 合併 pixel 與 flexible 後的新 layout
+   * @description 組合 pixel panel 與 flexible panel 的計算結果，產生新 layout。
+   *
+   * @example
+   * this._buildPreservedLayout({ sidebar: 30, main: 70 }, [['sidebar', 60]], ['main'], 70)
+   * // => { sidebar: 60, main: 40 }
+   */
+  _buildPreservedLayout(prevLayout, pixelPanelEntries, flexiblePanelIds, flexiblePanelsTotalPrevSize) {
+    const pixelPanelsTotalSize = sum(map(([, size]) => size)(pixelPanelEntries))
+    const remainingPercent = 100 - pixelPanelsTotalSize
+
+    const pixelEntries = fromPairs(pixelPanelEntries)
+    const flexibleEntries = this._distributeRemainingToFlexible(
+      prevLayout, flexiblePanelIds, flexiblePanelsTotalPrevSize, remainingPercent
+    )
+
+    return { ...prevLayout, ...pixelEntries, ...flexibleEntries }
+  }
+
+  /**
+   * @private
+   * @param {Layout} prevLayout - 前一次的 layout
+   * @param {PanelData[]} panels - panel 資料陣列
+   * @param {number} prevGroupSize - 前一次容器寬度（px）
+   * @param {number} nextGroupSize - 當前容器寬度（px）
+   * @returns {{ pixelPanelEntries: Array<[string, number]>, flexiblePanelIds: string[], flexiblePanelsTotalPrevSize: number, hasPixelPanels: boolean }}
+   * @description 依據 groupResizeBehavior 將 panels 分為 pixel 組與 flexible 組。
+   * pixel 組計算新容器下的百分比，flexible 組收集 id 與原始加總。
+   *
+   * @example
+   * this._classifyPanelsByResizeBehavior({ sidebar: 30, main: 70 }, panels, 1000, 500)
+   * // => { pixelPanelEntries: [['sidebar', 60]], flexiblePanelIds: ['main'], flexiblePanelsTotalPrevSize: 70, hasPixelPanels: true }
+   */
+  _classifyPanelsByResizeBehavior(prevLayout, panels, prevGroupSize, nextGroupSize) {
+    const isPixelPanel = panel => panel.config.groupResizeBehavior === GroupResizeBehavior.PreservePixelSize
+    const [pixelPanels, flexiblePanels] = partition(isPixelPanel)(panels)
+
+    const pixelPanelEntries = map(panel => {
+      const prevPercent = prevLayout[panel.id] ?? 0
+      const prevPixels = (prevPercent / 100) * prevGroupSize
+      const newPercent = this._formatNumber((prevPixels / nextGroupSize) * 100)
+
+      return [panel.id, newPercent]
+    })(pixelPanels)
+
+    const flexiblePanelIds = map(panel => panel.id)(flexiblePanels)
+    const flexiblePanelsTotalPrevSize = sum(map(id => prevLayout[id] ?? 0)(flexiblePanelIds))
+
+    return {
+      pixelPanelEntries,
+      flexiblePanelIds,
+      flexiblePanelsTotalPrevSize,
+      hasPixelPanels: pixelPanels.length > 0
+    }
+  }
+
+  /**
+   * @private
+   * @param {Layout} prevLayout - 前一次的 layout
+   * @param {string[]} flexiblePanelIds - flexible panel 的 id 列表
+   * @param {number} flexiblePanelsTotalPrevSize - flexible panel 原始百分比加總
+   * @param {number} remainingPercent - pixel panel 佔完後的剩餘百分比
+   * @returns {Object.<string, number>} flexible panel 的新百分比
+   * @description 將 pixel panel 佔完後的剩餘空間分配給 flexible panel。
+   * 原始加總 > 0 時按比例分配，原始加總 = 0 時均分。
+   *
+   * @example
+   * this._distributeRemainingToFlexible({ main: 70 }, ['main'], 70, 40)
+   * // => { main: 40 }
+   */
+  _distributeRemainingToFlexible(prevLayout, flexiblePanelIds, flexiblePanelsTotalPrevSize, remainingPercent) {
+    const entries = flexiblePanelsTotalPrevSize > 0
+      ? map(id => {
+          const prevSize = prevLayout[id] ?? 0
+          const newSize = this._formatNumber((prevSize / flexiblePanelsTotalPrevSize) * remainingPercent)
+          return [id, newSize]
+        })(flexiblePanelIds)
+      : map(id => {
+          const evenSize = this._formatNumber(remainingPercent / flexiblePanelIds.length)
+          return [id, evenSize]
+        })(flexiblePanelIds)
+
+    return fromPairs(entries)
+  }
+
+  /**
    * @description 比較兩個 layout 是否相等，使用 toFixed(3) 浮點容差。
    *
    * 比較邏輯：每個值先 toFixed(3) 再 parseFloat，然後以 === 比較。
@@ -474,6 +599,7 @@ export class LayoutCalculator {
  * @property {number|string} [minSize="0%"] - 最小尺寸
  * @property {number|string} [maxSize="100%"] - 最大尺寸
  * @property {boolean} [disabled=false] - 是否停用
+ * @property {GroupResizeBehavior} [groupResizeBehavior=GroupResizeBehavior.PreserveRelativeSize] - 容器 resize 時的尺寸保持策略
  */
 
 /**

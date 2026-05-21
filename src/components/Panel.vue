@@ -29,7 +29,7 @@ export default {
 }
 </script>
 
-<style lang="scss" scoped>
+<style lang="css" scoped>
 .resizable-panel {
   flex-basis: 0;
   flex-shrink: 1;

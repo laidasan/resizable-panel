@@ -2,20 +2,20 @@ import { describe, it, expect, beforeEach } from 'vitest'
 import { LayoutCalculator } from '../../src/core/LayoutCalculator.js'
 import { UnitConverter } from '../../src/core/UnitConverter.js'
 
-function makePanelData(id, { defaultSize, minSize = '0%', maxSize = '100%' } = {}) {
+function makePanelData(id, { defaultSize, minSize = '0%', maxSize = '100%', groupResizeBehavior } = {}) {
   return {
     id,
     element: null,
-    config: { id, element: null, defaultSize, minSize, maxSize, disabled: false },
+    config: { id, element: null, defaultSize, minSize, maxSize, disabled: false, groupResizeBehavior },
     constraints: { minSize: 0, maxSize: 100 }
   }
 }
 
-function makePanelDataWithConstraints(id, { defaultSize, minSize = 0, maxSize = 100 } = {}) {
+function makePanelDataWithConstraints(id, { defaultSize, minSize = 0, maxSize = 100, groupResizeBehavior } = {}) {
   return {
     id,
     element: null,
-    config: { id, element: null, defaultSize, minSize: `${minSize}%`, maxSize: `${maxSize}%`, disabled: false },
+    config: { id, element: null, defaultSize, minSize: `${minSize}%`, maxSize: `${maxSize}%`, disabled: false, groupResizeBehavior },
     constraints: { minSize, maxSize }
   }
 }
@@ -586,6 +586,200 @@ describe('LayoutCalculator', () => {
         expect(result.a).toBe(40)
         expect(result.b).toBe(40)
         expect(layoutSum(result)).toBe(80)
+      })
+    })
+  })
+
+  describe('preservePixelSizes', () => {
+    describe('短路條件', () => {
+      it('preservePixelSizes_Should_ReturnPrevLayout_When_PrevGroupSizeIsZero', () => {
+        const panels = [
+          makePanelData('sidebar', { groupResizeBehavior: 'preserve-pixel-size' }),
+          makePanelData('main')
+        ]
+        const prevLayout = { sidebar: 30, main: 70 }
+        const result = calculator.preservePixelSizes(prevLayout, 0, 500, panels)
+
+        expect(result).toEqual(prevLayout)
+      })
+
+      it('preservePixelSizes_Should_ReturnPrevLayout_When_NextGroupSizeIsZero', () => {
+        const panels = [
+          makePanelData('sidebar', { groupResizeBehavior: 'preserve-pixel-size' }),
+          makePanelData('main')
+        ]
+        const prevLayout = { sidebar: 30, main: 70 }
+        const result = calculator.preservePixelSizes(prevLayout, 1000, 0, panels)
+
+        expect(result).toEqual(prevLayout)
+      })
+
+      it('preservePixelSizes_Should_ReturnPrevLayout_When_PrevGroupSizeIsNegative', () => {
+        const panels = [
+          makePanelData('sidebar', { groupResizeBehavior: 'preserve-pixel-size' }),
+          makePanelData('main')
+        ]
+        const prevLayout = { sidebar: 30, main: 70 }
+        const result = calculator.preservePixelSizes(prevLayout, -100, 500, panels)
+
+        expect(result).toEqual(prevLayout)
+      })
+
+      it('preservePixelSizes_Should_ReturnPrevLayout_When_NextGroupSizeIsNegative', () => {
+        const panels = [
+          makePanelData('sidebar', { groupResizeBehavior: 'preserve-pixel-size' }),
+          makePanelData('main')
+        ]
+        const prevLayout = { sidebar: 30, main: 70 }
+        const result = calculator.preservePixelSizes(prevLayout, 1000, -100, panels)
+
+        expect(result).toEqual(prevLayout)
+      })
+
+      it('preservePixelSizes_Should_ReturnPrevLayout_When_GroupSizeUnchanged', () => {
+        const panels = [
+          makePanelData('sidebar', { groupResizeBehavior: 'preserve-pixel-size' }),
+          makePanelData('main')
+        ]
+        const prevLayout = { sidebar: 30, main: 70 }
+        const result = calculator.preservePixelSizes(prevLayout, 1000, 1000, panels)
+
+        expect(result).toEqual(prevLayout)
+      })
+
+      it('preservePixelSizes_Should_ReturnPrevLayout_When_NoPixelPanels', () => {
+        const panels = [
+          makePanelData('a'),
+          makePanelData('b')
+        ]
+        const prevLayout = { a: 50, b: 50 }
+        const result = calculator.preservePixelSizes(prevLayout, 1000, 500, panels)
+
+        expect(result).toEqual(prevLayout)
+      })
+
+      it('preservePixelSizes_Should_ReturnPrevLayout_When_NoFlexiblePanels', () => {
+        const panels = [
+          makePanelData('a', { groupResizeBehavior: 'preserve-pixel-size' }),
+          makePanelData('b', { groupResizeBehavior: 'preserve-pixel-size' })
+        ]
+        const prevLayout = { a: 50, b: 50 }
+        const result = calculator.preservePixelSizes(prevLayout, 1000, 500, panels)
+
+        expect(result).toEqual(prevLayout)
+      })
+    })
+
+    describe('基本場景', () => {
+      it('preservePixelSizes_Should_IncreasePixelPanelPercent_When_ContainerShrinks', () => {
+        const panels = [
+          makePanelData('sidebar', { groupResizeBehavior: 'preserve-pixel-size' }),
+          makePanelData('main')
+        ]
+        const prevLayout = { sidebar: 30, main: 70 }
+        const result = calculator.preservePixelSizes(prevLayout, 1000, 500, panels)
+
+        expect(result.sidebar).toBe(60)
+        expect(result.main).toBe(40)
+      })
+
+      it('preservePixelSizes_Should_DecreasePixelPanelPercent_When_ContainerGrows', () => {
+        const panels = [
+          makePanelData('sidebar', { groupResizeBehavior: 'preserve-pixel-size' }),
+          makePanelData('main')
+        ]
+        const prevLayout = { sidebar: 60, main: 40 }
+        const result = calculator.preservePixelSizes(prevLayout, 500, 1000, panels)
+
+        expect(result.sidebar).toBe(30)
+        expect(result.main).toBe(70)
+      })
+
+      it('preservePixelSizes_Should_PreservePixelSize_When_SidebarDraggedThenContainerResized', () => {
+        const panels = [
+          makePanelData('sidebar', { groupResizeBehavior: 'preserve-pixel-size' }),
+          makePanelData('main')
+        ]
+        const prevLayout = { sidebar: 30, main: 70 }
+        const shrinkResult = calculator.preservePixelSizes(prevLayout, 1000, 500, panels)
+
+        expect(shrinkResult.sidebar).toBe(60)
+
+        const growResult = calculator.preservePixelSizes(shrinkResult, 500, 1000, panels)
+
+        expect(growResult.sidebar).toBe(30)
+        expect(growResult.main).toBe(70)
+      })
+    })
+
+    describe('混用場景', () => {
+      it('preservePixelSizes_Should_DistributeRemaining_When_MultiplePixelAndRelativePanels', () => {
+        const panels = [
+          makePanelData('left', { groupResizeBehavior: 'preserve-pixel-size' }),
+          makePanelData('center'),
+          makePanelData('right', { groupResizeBehavior: 'preserve-pixel-size' })
+        ]
+        const prevLayout = { left: 20, center: 60, right: 20 }
+        const result = calculator.preservePixelSizes(prevLayout, 1000, 500, panels)
+
+        expect(result.left).toBe(40)
+        expect(result.right).toBe(40)
+        expect(result.center).toBe(20)
+      })
+
+      it('preservePixelSizes_Should_DistributeByRatio_When_MultipleRelativePanels', () => {
+        const panels = [
+          makePanelData('sidebar', { groupResizeBehavior: 'preserve-pixel-size' }),
+          makePanelData('content'),
+          makePanelData('aside')
+        ]
+        const prevLayout = { sidebar: 20, content: 60, aside: 20 }
+        const result = calculator.preservePixelSizes(prevLayout, 1000, 500, panels)
+
+        expect(result.sidebar).toBe(40)
+        const remainingPercent = 100 - 40
+        expect(result.content).toBeCloseTo(remainingPercent * (60 / 80), 3)
+        expect(result.aside).toBeCloseTo(remainingPercent * (20 / 80), 3)
+      })
+    })
+
+    describe('邊界情況', () => {
+      it('preservePixelSizes_Should_DistributeEvenly_When_FlexiblePanelsPrevTotalIsZero', () => {
+        const panels = [
+          makePanelData('sidebar', { groupResizeBehavior: 'preserve-pixel-size' }),
+          makePanelData('a'),
+          makePanelData('b')
+        ]
+        const prevLayout = { sidebar: 100, a: 0, b: 0 }
+        const result = calculator.preservePixelSizes(prevLayout, 500, 1000, panels)
+
+        expect(result.sidebar).toBe(50)
+        expect(result.a).toBe(25)
+        expect(result.b).toBe(25)
+      })
+
+      it('preservePixelSizes_Should_NotClamp_When_PixelPanelExceedsHundredPercent', () => {
+        const panels = [
+          makePanelData('sidebar', { groupResizeBehavior: 'preserve-pixel-size' }),
+          makePanelData('main')
+        ]
+        const prevLayout = { sidebar: 80, main: 20 }
+        const result = calculator.preservePixelSizes(prevLayout, 1000, 400, panels)
+
+        expect(result.sidebar).toBe(200)
+        expect(result.main).toBeLessThan(0)
+      })
+
+      it('preservePixelSizes_Should_TreatUndefinedBehavior_As_PreserveRelativeSize', () => {
+        const panels = [
+          makePanelData('sidebar', { groupResizeBehavior: 'preserve-pixel-size' }),
+          makePanelData('main')
+        ]
+        const prevLayout = { sidebar: 30, main: 70 }
+        const result = calculator.preservePixelSizes(prevLayout, 1000, 500, panels)
+
+        expect(result.sidebar).toBe(60)
+        expect(result.main).toBe(40)
       })
     })
   })

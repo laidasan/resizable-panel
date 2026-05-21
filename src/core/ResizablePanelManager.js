@@ -51,6 +51,7 @@ export class ResizablePanelManager {
     pointerDownAt: null,
     activeBoundaryIndex: null
   }
+  _lastGroupSize = null
   _boundHandlePointerDown = null
   _boundHandlePointerMove = null
   _boundHandlePointerUp = null
@@ -163,6 +164,7 @@ export class ResizablePanelManager {
     this._computeAllConstraints(availableSize)
 
     this._layout = this._layoutCalculator.calculateInitialLayout(this._panels, availableSize)
+    this._lastGroupSize = availableSize
     this._active = true
 
     this._startResizeObserver()
@@ -286,6 +288,7 @@ export class ResizablePanelManager {
    */
   deactivate() {
     this._active = false
+    this._lastGroupSize = null
 
     this._stopResizeObserver()
     this._unbindPointerEvents()
@@ -648,7 +651,7 @@ export class ResizablePanelManager {
    * @private
    * @param {ResizeObserverEntry[]} entries
    * @returns {void}
-   * @description ResizeObserver callback — 容器尺寸變化時重算約束、驗證 layout
+   * @description ResizeObserver callback — 容器尺寸變化時重算約束、保持 pixel panel 尺寸、驗證 layout，並更新 _lastGroupSize
    * @example
    * new ResizeObserver(entries => this._handleResize(entries))
    */
@@ -659,13 +662,18 @@ export class ResizablePanelManager {
     if (width !== 0) {
       this._computeAllConstraints(width)
 
-      const validatedLayout = this._layoutCalculator.validateLayout(this._layout, this._panels)
+      const preservedLayout = this._layoutCalculator.preservePixelSizes(
+        this._layout, this._lastGroupSize, width, this._panels
+      )
+      const validatedLayout = this._layoutCalculator.validateLayout(preservedLayout, this._panels)
       const layoutChanged = !this._layoutCalculator.layoutsEqual(validatedLayout, this._layout)
 
       if (layoutChanged) {
         this._layout = validatedLayout
         this._emit(Event.LayoutChange, this._toLayoutResult())
       }
+
+      this._lastGroupSize = width
     }
   }
 }
