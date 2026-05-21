@@ -1,4 +1,4 @@
-import { keys, values, isNil, all, map, partition, fromPairs, sum } from 'ramda'
+import { keys, values, isNil, all, map, partition, fromPairs, sum, propOr } from 'ramda'
 import { GroupResizeBehavior } from './GroupResizeBehavior.js'
 
 /**
@@ -494,7 +494,7 @@ export class LayoutCalculator {
     const [pixelPanels, flexiblePanels] = partition(isPixelPanel)(panels)
 
     const pixelPanelEntries = map(panel => {
-      const prevPercent = prevLayout[panel.id] ?? 0
+      const prevPercent = propOr(0, panel.id, prevLayout)
       const prevPixels = (prevPercent / 100) * prevGroupSize
       const newPercent = this._formatNumber((prevPixels / nextGroupSize) * 100)
 
@@ -502,7 +502,7 @@ export class LayoutCalculator {
     })(pixelPanels)
 
     const flexiblePanelIds = map(panel => panel.id)(flexiblePanels)
-    const flexiblePanelsTotalPrevSize = sum(map(id => prevLayout[id] ?? 0)(flexiblePanelIds))
+    const flexiblePanelsTotalPrevSize = sum(map(id => propOr(0, id, prevLayout))(flexiblePanelIds))
 
     return {
       pixelPanelEntries,
@@ -529,7 +529,7 @@ export class LayoutCalculator {
   _distributeRemainingToFlexible(prevLayout, flexiblePanelIds, flexiblePanelsTotalPrevSize, remainingPercent) {
     const entries = flexiblePanelsTotalPrevSize > 0
       ? map(id => {
-          const prevSize = prevLayout[id] ?? 0
+          const prevSize = propOr(0, id, prevLayout)
           const newSize = this._formatNumber((prevSize / flexiblePanelsTotalPrevSize) * remainingPercent)
           return [id, newSize]
         })(flexiblePanelIds)
